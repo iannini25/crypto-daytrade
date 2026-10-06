@@ -7,10 +7,13 @@ Hard rules (environment may only tighten these; see config.py):
 - net R:R = (target% - 0.30) / (stop% + 0.30) >= 2
 - stop at least 3.0% so that 0.30% cost is at most 10% of the risk distance
 - on a ~19.9 USDT book the 6 USDT minimum order puts the stop in bands:
-  <= ~3.02% is the 1% target zone, through ~9.65% needs justification, above that rejects
+  3.00–3.02% is the 1% target zone, through 9.66% needs justification, above 9.66% rejects
+- target at least 2×stop + 0.90 percentage points, and never under the 6.9% floor
 - kill switch at or below 90% of starting equity
-- no new entry after one losing trade on the same Sao Paulo day
+- no new entry after one losing trade on the same Sao Paulo day, and at most 3 trades that day
 - stops anchor on a 1h or daily swing; 3xATR(D) is only a ceiling
+- active patterns are long-only; exit-only patterns never open a short or a new long
+- a stop inside the pattern (tighter than the structural low) is rejected
 
 This module never sends an order.
 """
@@ -23,6 +26,7 @@ from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 
 from desk.fees import (
     COST_PERCENT,
+    FLOOR_TARGET_PERCENT,
     MIN_STOP_PERCENT,
     VIP0_SIDE_FEE,
     cost_percent_points,
@@ -30,6 +34,7 @@ from desk.fees import (
     stop_percent,
     target_percent,
 )
+from desk.patterns import REVERSAL_LONG, long_entry_allowed, pattern_role
 
 QTY_STEP = Decimal("0.00000001")
 
@@ -39,6 +44,14 @@ RISK_CAP = Decimal("0.03")
 KILL_RATIO = Decimal("0.90")
 MIN_ORDER_USDT = Decimal("6")
 REFERENCE_EQUITY = Decimal("19.9")
+MAX_TRADES_PER_DAY = 3
+# Approved v1 edges for the 19.9 USDT book. The 1% formula quantizes to 3.02.
+# The 3% formula quantizes to 9.65; v1 keeps 9.66 inclusive
+# ("até 9.66% = exceção", "> 9.66% = não").
+PLAYBOOK_TARGET_ZONE_MAX_PERCENT = Decimal("3.02")
+PLAYBOOK_CAP_STOP_PERCENT = Decimal("9.66")
+# Stops in the sliver above the raw 9.65 formula and through 9.66 stay inside v1.
+_FORMULA_CAP_PERCENT = Decimal("9.65")
 
 
 @dataclass(frozen=True)
@@ -53,6 +66,12 @@ class OrderPlan:
     stop_anchor: str = "1h"
     # Price distance of 3x daily ATR. None skips the ceiling check.
     atr_ceiling: Decimal | None = None
+    # Playbook name. None skips the catalog check (cost-only plans).
+    pattern: str | None = None
+    # "15m", "1h", or "D": where the pattern is drawn. 15m only times a close.
+    pattern_timeframe: str | None = None
+    # Structural low of the pattern. A stop above this price sits inside it.
+    pattern_low: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +87,8 @@ class AccountSnapshot:
     max_positions: int = 1
     min_order_usdt: Decimal = MIN_ORDER_USDT
     losses_today: int = 0
+    trades_today: int = 0
+    max_trades_per_day: int = MAX_TRADES_PER_DAY
 
 
 @dataclass(frozen=True)
@@ -169,8 +190,9 @@ def stop_bands(
 ) -> StopBands:
     """Band edges from the min order and this equity.
 
-    A 6 USDT order on 19.9 USDT equity risks about 1% of equity at a ~3.02% stop
-    and about 3% of equity at a ~9.65% stop (0.30% round-trip cost included).
+    A 6 USDT order on 19.9 USDT equity risks about 1% of equity at a 3.02% stop.
+    The same order at a 3% equity risk quantizes to 9.65%; playbook v1 keeps the
+    operating cap at 9.66% inclusive. Above 9.66%, or above 3×ATR(D), is a reject.
     """
     cost_pct = cost_percent_points(fee_rate)
     cost_frac = cost_pct / Decimal("100")
@@ -179,15 +201,50 @@ def stop_bands(
         raw = (risk * equity / min_order_usdt - cost_frac) * Decimal("100")
         return raw.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    reference = (
+        equity == REFERENCE_EQUITY
+        and min_order_usdt == MIN_ORDER_USDT
+        and fee_rate == VIP0_SIDE_FEE
+    )
+    zone = edge(target_risk)
+    cap = edge(risk_cap)
+    if reference and target_risk == TARGET_RISK:
+        zone = PLAYBOOK_TARGET_ZONE_MAX_PERCENT
+    if reference and risk_cap == RISK_CAP:
+        cap = PLAYBOOK_CAP_STOP_PERCENT
     min_stop = (cost_pct / Decimal("0.10")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return StopBands(
         min_stop_percent=min_stop,
-        target_zone_max_percent=edge(target_risk),
-        cap_stop_percent=edge(risk_cap),
+        target_zone_max_percent=zone,
+        cap_stop_percent=cap,
         cost_percent=cost_pct,
         min_order_usdt=min_order_usdt,
         equity=equity,
     )
+
+
+def _within_risk_cap(
+    risk_fraction: Decimal,
+    account: AccountSnapshot,
+    stop_pct: Decimal,
+    bands: StopBands,
+) -> bool:
+    """True when the sized risk stays inside the 3% cap, including the 9.66% edge.
+
+    A 9.66% stop on the 6 USDT minimum is about 3.003% of 19.9 USDT. v1 keeps
+    that stop as an exception. Wider stops, and any size above the minimum
+    that clears 3%, still fail.
+    """
+    if risk_fraction <= account.risk_cap:
+        return True
+    if bands.cap_stop_percent != PLAYBOOK_CAP_STOP_PERCENT:
+        return False
+    if stop_pct <= _FORMULA_CAP_PERCENT or stop_pct > PLAYBOOK_CAP_STOP_PERCENT:
+        return False
+    at_minimum = (
+        (stop_pct / Decimal("100")) + (bands.cost_percent / Decimal("100"))
+    ) * account.min_order_usdt / account.equity
+    return risk_fraction <= at_minimum
 
 
 def _prices_ok(plan: OrderPlan) -> bool:
@@ -203,6 +260,34 @@ def _floor_qty(qty: Decimal) -> Decimal:
     if qty <= 0:
         return Decimal("0")
     return qty.quantize(QTY_STEP, rounding=ROUND_DOWN)
+
+
+def _pattern_reasons(plan: OrderPlan) -> list[str]:
+    """Catalog rules from playbook v1. An unnamed plan skips this check."""
+    if not plan.pattern:
+        return []
+    role = pattern_role(plan.pattern)
+    if role == "exit_only":
+        return [
+            f"exit-only pattern {plan.pattern}: never open a short and never open a new long"
+        ]
+    if role == "out":
+        return [f"pattern {plan.pattern} is outside playbook v1; log only, not a paper entry"]
+    if role != "active":
+        return [f"pattern {plan.pattern} is not an active long in playbook v1"]
+    timeframe = plan.pattern_timeframe
+    if timeframe is None:
+        if plan.pattern in REVERSAL_LONG:
+            return [
+                "reversal patterns are active only on 1h or daily; 15m only confirms the close"
+            ]
+        return []
+    if not long_entry_allowed(plan.pattern, timeframe):
+        return [
+            f"{plan.pattern} on {timeframe} is not an active long; "
+            "15m only confirms a close, and reversals are 1h or daily"
+        ]
+    return []
 
 
 def evaluate(
@@ -243,10 +328,15 @@ def evaluate(
         reasons.append("max 1 open position")
     if account.losses_today >= 1:
         reasons.append("loss lock: one losing trade already today; no new entries")
+    if account.trades_today >= account.max_trades_per_day:
+        reasons.append("trade cap: 3 trades already today; no new entries")
     if account.fee_rate < VIP0_SIDE_FEE:
         reasons.append("fee rate below VIP0 0.10% per side")
     if plan.stop_anchor not in {"1h", "D"}:
         reasons.append("stop must anchor on 1h or daily swing structure, not a 15m swing")
+    reasons.extend(_pattern_reasons(plan))
+    if plan.pattern_low is not None and plan.stop > plan.pattern_low:
+        reasons.append("mid-pattern stop is forbidden; do not tighten the stop inside the pattern")
     if now is not None and not entry_locked:
         from desk.events import entry_lock
 
@@ -288,6 +378,11 @@ def evaluate(
             reasons.append(band_label)
         if plan.atr_ceiling is not None and (plan.entry - plan.stop) > plan.atr_ceiling:
             reasons.append("stop is wider than the 3xATR(D) ceiling; ATR is not itself a stop")
+        if gained_pct < FLOOR_TARGET_PERCENT:
+            reasons.append(
+                "target floor: target must be at least 6.9% "
+                "(target% >= 2×stop% + 0.90, and 6.9% is that floor at a 3.0% stop)"
+            )
         if rr < account.min_rr:
             reasons.append("net R:R < 2")
         risk_per_notional = (stop_pct / Decimal("100")) + cost_frac
@@ -338,8 +433,14 @@ def evaluate(
         or reason.startswith("equity must")
         or reason.startswith("fee rate below")
         or reason.startswith("loss lock")
+        or reason.startswith("trade cap")
         or reason.startswith("event lock")
         or reason.startswith("outside 10:00")
+        or reason.startswith("exit-only")
+        or reason.startswith("mid-pattern")
+        or reason.startswith("pattern ")
+        or reason.startswith("reversal")
+        or "is not an active long" in reason
         for reason in reasons
     )
     if blocked_hard:
@@ -351,7 +452,7 @@ def evaluate(
     if qty > 0 and stop_pct is not None and account.equity > 0:
         risk_per_notional = (stop_pct / Decimal("100")) + cost_frac
         risk_fraction = (notional * risk_per_notional) / account.equity
-        if risk_fraction > account.risk_cap:
+        if not _within_risk_cap(risk_fraction, account, stop_pct, bands):
             reasons.append("risk fraction exceeds the 3% cap")
             qty = Decimal("0")
             notional = Decimal("0")

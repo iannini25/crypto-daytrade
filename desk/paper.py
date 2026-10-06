@@ -133,19 +133,27 @@ class Ledger:
             raise PaperError("a mark price is required while a position is open")
         return self.cash + self.position.qty * mark * (Decimal("1") - self.fee_rate)
 
-    def losses_today(self, now: datetime | None) -> int:
-        """Losing closes on the same America/Sao_Paulo calendar day."""
+    def _closed_today(self, now: datetime | None) -> list[ClosedTrade]:
+        """Closes on the same America/Sao_Paulo calendar day."""
         if now is None or not self.trades:
-            return 0
+            return []
         day = sao_paulo_now(now).date()
-        count = 0
+        found: list[ClosedTrade] = []
         for trade in self.trades:
             closed = datetime.fromisoformat(trade.closed_at)
             if closed.tzinfo is None:
                 closed = closed.replace(tzinfo=timezone.utc)
-            if closed.astimezone(sao_paulo_now(now).tzinfo).date() == day and trade.pnl < 0:
-                count += 1
-        return count
+            if closed.astimezone(sao_paulo_now(now).tzinfo).date() == day:
+                found.append(trade)
+        return found
+
+    def losses_today(self, now: datetime | None) -> int:
+        """Losing closes on the same America/Sao_Paulo calendar day."""
+        return sum(1 for trade in self._closed_today(now) if trade.pnl < 0)
+
+    def trades_today(self, now: datetime | None) -> int:
+        """Closed trades on the same America/Sao_Paulo calendar day."""
+        return len(self._closed_today(now))
 
     def account(self, equity: Decimal | None = None, now: datetime | None = None) -> AccountSnapshot:
         marked = self.cash if equity is None else equity
@@ -155,6 +163,7 @@ class Ledger:
             open_positions=0 if self.position is None else 1,
             fee_rate=self.fee_rate,
             losses_today=self.losses_today(now),
+            trades_today=self.trades_today(now),
         )
 
     def to_json(self) -> dict:

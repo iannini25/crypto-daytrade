@@ -6,6 +6,10 @@ by a person via Pix. This file is how a person reads a chart. `python -m desk
 scan` only labels the same rules. It does not send orders, and it does not
 write the ledger unless `LEDGER_WRITER=1`.
 
+The approved pattern catalog is the Portuguese playbook
+[playbook-padroes-v1.md](playbook-padroes-v1.md) (v1, 2026-10-06). This page
+follows it. Where the two differ, the Portuguese file wins.
+
 ## Filters that apply to every pattern
 
 1. **Daily structure is higher highs and higher lows, and the daily close is
@@ -25,7 +29,9 @@ write the ledger unless `LEDGER_WRITER=1`.
    ```
 
    which means `target% >= 2 × stop% + 0.90`. A gross 2R is not enough.
-   Worked case: stop 3.5%, target 7.9% → (7.9 − 0.30) / (3.5 + 0.30) = 2.
+   The floor is **6.9%** (that formula at a 3.0% stop). At a 9.66% stop the
+   same formula asks for 20.22% (the playbook illustration rounds it to
+   20.2%). Worked case: stop 3.5%, target 7.9% → (7.9 − 0.30) / (3.5 + 0.30) = 2.
 5. **Cost versus the stop.** 0.30% has to be at most 10% of the stop
    distance, so the stop is at least **3.0%**. A 1% stop is rejected.
 6. **Account size.** The minimum order is 6 USDT on this ~19.9 USDT book.
@@ -35,18 +41,22 @@ write the ledger unless `LEDGER_WRITER=1`.
    | Stop distance | Band |
    | --- | --- |
    | under 3.0% | rejected, cost rule |
-   | 3.0% through about 3.02% | 1% target zone |
-   | about 3.02% through about 9.65% (quoted as ~9.66%) | exception, needs justification |
-   | above that cap | rejected |
+   | 3.00% through 3.02% | 1% target zone |
+   | above 3.02% through 9.66% | exception, needs justification |
+   | above 9.66% | rejected |
 
-   Exact edges are `(risk × 19.9 / 6) − 0.30` in percent, with risk at 1%
-   and at 3%. Do not loosen them to force a trade.
+   The 1% and 3% formulas are `(risk × 19.9 / 6) − 0.30` in percent. The 3%
+   edge quantizes to 9.65; v1 keeps **9.66% inclusive**. Do not loosen them
+   to force a trade. A valid structural stop sits in **3.0–9.66%** and at or
+   under **3×ATR(D)**.
 7. **3×ATR(D) is only a ceiling.** If the 1h or daily swing is farther than
    three daily ATRs from the entry, skip. Do not move the stop up to the
-   ATR line to make it fit.
+   ATR line to make it fit. Do not tighten a stop so it lands inside the
+   pattern ("stop no meio do padrão"). If the structural low does not fit,
+   the setup is out for this window.
 8. **One loss ends the day.** After one losing close on the America/Sao_Paulo
-   date, no new entries that day. One open position. No new risk at or
-   below 90% of starting equity.
+   date, no new entries that day. At most **3 trades** that day, and one
+   open position. No new risk at or below 90% of starting equity.
 
 ## Event locks
 
@@ -70,63 +80,54 @@ open):
 
 ## Patterns
 
-The names below are the 15m timing labels. In every case the stop is the
-1h or daily swing, the filters above still apply, and a measured move that
-does not clear net R:R of 2 is a skip. Do not slide the stop and do not
-invent a farther target to pass the gate.
+Names and status come from
+[playbook-padroes-v1.md](playbook-padroes-v1.md). The stop is the 1h or
+daily structure of the pattern (last higher low, flag base, right shoulder,
+second bottom). A 15m swing is a record, not that stop. The 15m candle only
+confirms a **close** beyond the level. A measured move that does not clear
+net R:R of 2, or a target under 6.9%, is a skip. Do not slide the stop and
+do not invent a farther target to pass the gate.
 
-### Ascending triangle
+### Active longs (paper candidates only)
 
-Flat highs, rising lows, inside the daily uptrend. The 15m close through
-the flat high is the timing. Invalid if a later 15m close loses the
-breakout level, or the daily HH/HL or SMA100 filter breaks.
+| Pattern | Where it is drawn | Timing |
+| --- | --- | --- |
+| Ascending triangle | continuation, priority 1 | 15m close through the flat high |
+| Bull flag | continuation, priority 2; needs a pole | 15m close through the flag high |
+| Rectangle | upside breakout only; buying the base is out | 15m close through resistance |
+| Falling wedge | pullback inside daily HH/HL, low priority | 15m close through the upper boundary |
+| Inverse head and shoulders | **daily or 1h only**, never a 15m pattern | 15m close above the neckline |
+| Double bottom | **daily or 1h only**, never a 15m pattern | 15m close through the neckline (the eixo) |
 
-### Bull flag
+A daily chart that is not HH/HL, or a close under SMA100, turns every name
+above into a flat. A conflict between the daily read and the 15m read is a
+flat. A break of the daily uptrend line is a flat.
 
-A sharp impulse, then a short pause that holds above a 50% retrace of the
-pole. Timing is the 15m close through the flag high. Invalid if the pause
-gives back more than half the pole, or the daily filter is gone.
+### Exit only (never a short, never a new long)
 
-### Rectangle breakout
+Descending triangle, rising wedge, bear flag, pennant down, head and
+shoulders top, double top, rounded top. A close through the level while a
+long is open is an exit. The gate rejects these names even when the side
+says Buy. Nothing in this desk opens a short.
 
-Horizontal support and resistance, at least two touches each side. This
-desk only buys the upside, on a 15m close. Invalid on a close back inside
-the box. A 1R measured move will not clear the 0.30% cost model.
+### Out of v1 (log only)
 
-### Double bottom
-
-Two lows at nearly the same price. The entry is not the second touch. It
-is a 15m close through the neckline (the high between the lows). The two
-lows should be within a few tenths of a percent. A double bottom against a
-daily downtrend, or under SMA100, is not this playbook.
-
-### Inverse head and shoulders
-
-Three lows, the middle one the lowest, shoulders in the same area. Timing
-is the 15m close above the neckline. Shoulders that are far apart in price
-are not this pattern.
-
-### Falling wedge and cup
-
-Falling wedge: highs and lows descend and the range contracts. Timing is
-the 15m close through the upper boundary, not a guess while it is still
-falling.
-
-Cup: price leaves a rim, rounds a trough in the middle, and returns to a
-similar rim. Timing is the close through the rim. A "V" with the low on
-the edge of the window is not a cup.
-
-Both still need daily HH/HL and a close above SMA100.
+Symmetric triangle, pennant up, and cup and handle. A 15m cup is forbidden.
+A daily cup is observation only, not an automatic paper candidate. Rounded
+bottom is not a setup.
 
 ## What the scanner is allowed to say
 
-`python -m desk scan` can print `ignore`, `watch`, or `paper_candidate`.
+`python -m desk scan` can print `ignore`, `watch`, `exit_only`, or
+`paper_candidate`.
 
-`paper_candidate` means the daily filters, the 1h or daily stop, the ATR
-ceiling, the 15m close, the Sao Paulo window, the event locks, the loss
-lock, and the cost gate all passed on a coarse heuristic. It is a note for
-a person. The process does not size a live order and does not call the
-exchange.
+`paper_candidate` means an **active** long, the daily filters, the 1h or
+daily stop inside 3.0–9.66% and at or under 3×ATR(D), the target floor, the
+15m close, the Sao Paulo window, the event locks, the loss lock, the
+three-trade cap, and the cost gate all passed on a coarse heuristic. It is
+a note for a person. The process does not size a live order and does not
+call the exchange. `exit_only` means the label must not open a short and
+must not open a new long.
 
 Heuristics miss patterns and mislabel them. If the chart disagrees with the
 label, the chart wins, and the trade is still skipped when the gate fails.

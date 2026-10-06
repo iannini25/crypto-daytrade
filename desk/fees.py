@@ -32,6 +32,8 @@ ROUND_TRIP_COST = Decimal("0.003")
 COST_PERCENT = Decimal("0.30")
 # Cost must be at most 10% of the stop distance, so the stop is at least 3.0%.
 MIN_STOP_PERCENT = COST_PERCENT / Decimal("0.10")
+# At that 3.0% floor, net R:R of 2 needs target% >= 2*3.0 + 0.90 = 6.9.
+FLOOR_TARGET_PERCENT = Decimal("6.9")
 
 
 def as_decimal(value: Decimal | int | str) -> Decimal:

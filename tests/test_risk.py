@@ -148,6 +148,78 @@ def test_fee_rate_below_vip0_is_rejected():
     assert any("VIP0" in reason for reason in decision.reasons)
 
 
+def test_stop_9_66_percent_is_an_exception_and_9_67_is_rejected():
+    # 9.66% stop, 20.22% target: (20.22 - 0.30) / (9.66 + 0.30) = 2.
+    accepted = evaluate(_plan(stop=Decimal("90.34"), target=Decimal("120.22")), _account())
+    assert accepted.allowed
+    assert accepted.stop_band == "exception"
+    assert accepted.cap_stop_percent == Decimal("9.66")
+    assert accepted.rr_after_fees == Decimal("2")
+
+    rejected = evaluate(_plan(stop=Decimal("90.33"), target=Decimal("140")), _account())
+    assert not rejected.allowed
+    assert rejected.stop_band == "account_cap"
+    assert rejected.qty == 0
+
+
+def test_target_under_6_9_percent_is_rejected():
+    decision = evaluate(_plan(stop=Decimal("97"), target=Decimal("106.8")), _account())
+    assert not decision.allowed
+    assert any("6.9%" in reason for reason in decision.reasons)
+    floor = evaluate(_plan(stop=Decimal("97"), target=Decimal("106.9")), _account())
+    assert floor.allowed
+    assert floor.target_percent == Decimal("6.9")
+    assert floor.stop_band == "target_1pct"
+
+
+def test_three_trades_today_block_a_new_entry():
+    blocked = evaluate(_plan(), _account(trades_today=3))
+    assert not blocked.allowed
+    assert blocked.qty == 0
+    assert any(reason.startswith("trade cap") for reason in blocked.reasons)
+    open_ = evaluate(_plan(), _account(trades_today=2))
+    assert open_.allowed
+
+
+def test_exit_only_pattern_never_opens_a_short_or_a_long():
+    decision = evaluate(_plan(pattern="double_top", side="Buy"), _account())
+    assert not decision.allowed
+    assert decision.qty == 0
+    assert any("never open a short" in reason for reason in decision.reasons)
+    assert decision.summary.find("Sell") == -1
+
+    bear = evaluate(_plan(pattern="descending_triangle", pattern_timeframe="1h"), _account())
+    assert not bear.allowed
+    assert any("exit-only" in reason for reason in bear.reasons)
+
+
+def test_mid_pattern_stop_and_15m_reversal_are_rejected():
+    # A 3% stop above the structural low (96.5) would otherwise clear the cost gate.
+    mid = evaluate(
+        _plan(stop=Decimal("97"), target=Decimal("106.9"), pattern_low=Decimal("96.5")),
+        _account(),
+    )
+    assert not mid.allowed
+    assert any("mid-pattern" in reason for reason in mid.reasons)
+
+    reversal = evaluate(
+        _plan(pattern="double_bottom", pattern_timeframe="15m"),
+        _account(),
+    )
+    assert not reversal.allowed
+    assert any("not an active long" in reason for reason in reversal.reasons)
+
+    daily = evaluate(
+        _plan(pattern="double_bottom", pattern_timeframe="D", pattern_low=Decimal("96.5")),
+        _account(),
+    )
+    assert daily.allowed
+
+    cup = evaluate(_plan(pattern="cup", pattern_timeframe="D"), _account())
+    assert not cup.allowed
+    assert any("outside playbook" in reason for reason in cup.reasons)
+
+
 def test_config_refuses_looser_rules():
     with pytest.raises(ConfigError):
         load_config({"DESK_MAX_RISK": "0.02"})

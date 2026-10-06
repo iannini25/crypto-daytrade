@@ -183,6 +183,7 @@ def _paper_status(config, as_json: bool, init: bool, ledger: str | None) -> int:
         "ledger_writer": ledger_writes_enabled(),
         "writer_note": writer_note,
         "losses_today": book.losses_today(datetime.now(timezone.utc)),
+        "trades_today": book.trades_today(datetime.now(timezone.utc)),
         "api_key_set": config.api_key_set,
         "api_secret_set": config.api_secret_set,
         "ai_subaccount_set": config.ai_subaccount_set,
@@ -242,7 +243,8 @@ def render_paper_status(payload: dict) -> str:
         f"1% zone <= {_px(payload['target_zone_max_percent'])}%  "
         f"cap {_px(payload['cap_stop_percent'])}%  min order {_px(payload['min_order_usdt'])} USDT",
         f"target risk {_px(payload['max_risk'])}  cap {_px(payload['risk_cap'])}  "
-        f"min net R:R {_px(payload['min_rr_after_fees'])}  losses today {payload['losses_today']}",
+        f"min net R:R {_px(payload['min_rr_after_fees'])}  "
+        f"losses today {payload['losses_today']}  trades today {payload['trades_today']}",
         f"ledger_writer={payload['ledger_writer']}",
         f"api_key_set={payload['api_key_set']} api_secret_set={payload['api_secret_set']} "
         f"ai_subaccount_set={payload['ai_subaccount_set']}",
@@ -298,6 +300,7 @@ def _scan(config, as_json: bool, ledger: str | None) -> int:
         max_positions=config.max_positions,
         min_order_usdt=config.min_order_usdt,
         losses_today=book.losses_today(now),
+        trades_today=book.trades_today(now),
     )
     try:
         rows = collect_scan(client, config.symbols, account, now, load_events(config.events_path))

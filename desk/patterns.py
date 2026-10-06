@@ -17,6 +17,59 @@ from desk.bybit import Candle
 
 MIN_HEIGHT = Decimal("0.01")
 
+# Catalog from docs/playbook-padroes-v1.md. Active names may become a paper
+# long. Exit-only names never open a short and never open a new long.
+# Out-of-v1 names are a log, not an entry. Reversals are active only on 1h
+# or daily; a 15m bar only confirms the close.
+ACTIVE_LONG = frozenset(
+    {
+        "ascending_triangle",
+        "rectangle",
+        "falling_wedge",
+        "bull_flag",
+        "inverse_head_and_shoulders",
+        "double_bottom",
+    }
+)
+REVERSAL_LONG = frozenset({"inverse_head_and_shoulders", "double_bottom"})
+OUT_OF_V1 = frozenset({"cup", "symmetric_triangle", "pennant_up", "rounded_bottom"})
+EXIT_ONLY = frozenset(
+    {
+        "descending_triangle",
+        "rising_wedge",
+        "bear_flag",
+        "pennant_down",
+        "head_and_shoulders",
+        "double_top",
+        "rounded_top",
+    }
+)
+
+
+def pattern_role(name: str | None) -> str:
+    """`active`, `exit_only`, `out`, or `unknown`."""
+    if name in EXIT_ONLY:
+        return "exit_only"
+    if name in OUT_OF_V1:
+        return "out"
+    if name in ACTIVE_LONG:
+        return "active"
+    return "unknown"
+
+
+def long_entry_allowed(name: str | None, timeframe: str) -> bool:
+    """True when this name may open a paper long on that timeframe.
+
+    Continuations may be timed by a 15m close. Inverse head and shoulders
+    and double bottom are active only when the pattern is on 1h or daily.
+    Exit-only and out-of-v1 names never open a long.
+    """
+    if name not in ACTIVE_LONG:
+        return False
+    if name in REVERSAL_LONG:
+        return timeframe in {"1h", "D"}
+    return timeframe in {"15m", "1h", "D"}
+
 
 @dataclass(frozen=True)
 class PatternMatch:

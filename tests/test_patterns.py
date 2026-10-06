@@ -7,6 +7,7 @@ from desk.bybit import Candle
 from desk.patterns import (
     classify,
     daily_hh_hl,
+    long_entry_allowed,
     match_ascending_triangle,
     match_bull_flag,
     match_cup,
@@ -14,6 +15,7 @@ from desk.patterns import (
     match_falling_wedge,
     match_inverse_head_and_shoulders,
     match_rectangle,
+    pattern_role,
 )
 from desk.risk import AccountSnapshot
 from desk.scanner import analyze
@@ -144,6 +146,62 @@ def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
     )
     assert no_trend.disposition == "ignore"
     assert no_trend.daily_hh_hl is False
+
+
+def test_15m_reversal_and_cup_are_not_paper_candidates():
+    assert pattern_role("bull_flag") == "active"
+    assert pattern_role("double_top") == "exit_only"
+    assert pattern_role("cup") == "out"
+    assert long_entry_allowed("bull_flag", "15m")
+    assert long_entry_allowed("double_bottom", "15m") is False
+    assert long_entry_allowed("double_bottom", "D")
+    assert long_entry_allowed("bear_flag", "1h") is False
+
+    bars = []
+    for index in range(16):
+        low = Decimal("100")
+        high = Decimal("101")
+        close = Decimal("100.5")
+        if index == 3:
+            low, high, close = Decimal("98"), Decimal("99"), Decimal("98.4")
+        elif index == 6:
+            low, high, close = Decimal("100"), Decimal("100.5"), Decimal("100.2")
+        elif index == 9:
+            low, high, close = Decimal("98.05"), Decimal("99"), Decimal("98.5")
+        elif index in (4, 5, 7, 8):
+            low, high, close = Decimal("99"), Decimal("101.2"), Decimal("100")
+        bars.append(candle(index, high, low, close))
+    signal = candle(16, "102", "101", "101.5")
+    account = AccountSnapshot(equity=Decimal("19.9"), starting_equity=Decimal("19.9"))
+    daily, hourly = _daily_and_hourly_for(Decimal("101.5"))
+    row = analyze(
+        "BTCUSDT",
+        daily,
+        hourly,
+        bars + [signal],
+        account,
+        datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
+    )
+    assert row.pattern == "double_bottom"
+    assert row.disposition == "watch"
+    assert any("only confirms a close" in note for note in row.notes)
+
+    cup = []
+    for index in range(30):
+        x = (Decimal(index) - Decimal("14.5")) / Decimal("14.5")
+        low = Decimal("95") + (x * x) * Decimal("5")
+        cup.append(candle(index, low + Decimal("0.4"), low, low + Decimal("0.2")))
+    cup_row = analyze(
+        "ETHUSDT",
+        daily,
+        hourly,
+        cup + [candle(30, "101", "100", "100.6")],
+        account,
+        datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
+    )
+    assert cup_row.pattern == "cup"
+    assert cup_row.disposition != "paper_candidate"
+    assert any("outside playbook" in note for note in cup_row.notes)
 
 
 def test_double_bottom_neckline():
