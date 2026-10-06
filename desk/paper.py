@@ -76,6 +76,7 @@ class Position:
     figura_desc: str = ""
     figura_armed_at_utc: str | None = None
     stop_initial: Decimal | None = None
+    pendente_zerar_pre_evento: dict | None = None
 
     def record_stop(self, old: Decimal, new: Decimal, at: datetime, reason: str) -> StopChange:
         """Append {old, new, at_utc, reason} and set the live stop. Never lowers."""
@@ -103,6 +104,7 @@ class Position:
             "figura_min": None if self.figura_min is None else _dec_str(self.figura_min),
             "figura_desc": self.figura_desc,
             "figura_armed_at_utc": self.figura_armed_at_utc,
+            "pendente_zerar_pre_evento": self.pendente_zerar_pre_evento,
         }
 
     @classmethod
@@ -124,6 +126,7 @@ class Position:
             figura_desc=str(payload.get("figura_desc") or ""),
             figura_armed_at_utc=payload.get("figura_armed_at_utc"),
             stop_initial=_opt_dec(payload, "stop_initial"),
+            pendente_zerar_pre_evento=payload.get("pendente_zerar_pre_evento"),
         )
 
 
@@ -142,6 +145,12 @@ class ClosedTrade:
     stop_used: Decimal | None = None
     close_1h: Decimal | None = None
     bid_at_detection: Decimal | None = None
+    devia_zerar_utc: str | None = None
+    executado_utc: str | None = None
+    atraso_execucao_min: Decimal | None = None
+    preco_ref_quando_devia: Decimal | None = None
+    preco_execucao: Decimal | None = None
+    diferenca_pct: Decimal | None = None
 
     def to_json(self) -> dict:
         return {
@@ -158,6 +167,12 @@ class ClosedTrade:
             "stop_used": None if self.stop_used is None else _dec_str(self.stop_used),
             "close_1h": None if self.close_1h is None else _dec_str(self.close_1h),
             "bid_at_detection": None if self.bid_at_detection is None else _dec_str(self.bid_at_detection),
+            "devia_zerar_utc": self.devia_zerar_utc,
+            "executado_utc": self.executado_utc,
+            "atraso_execucao_min": None if self.atraso_execucao_min is None else _dec_str(self.atraso_execucao_min),
+            "preco_ref_quando_devia": None if self.preco_ref_quando_devia is None else _dec_str(self.preco_ref_quando_devia),
+            "preco_execucao": None if self.preco_execucao is None else _dec_str(self.preco_execucao),
+            "diferenca_pct": None if self.diferenca_pct is None else _dec_str(self.diferenca_pct),
         }
 
     @classmethod
@@ -176,6 +191,12 @@ class ClosedTrade:
             stop_used=_opt_dec(payload, "stop_used"),
             close_1h=_opt_dec(payload, "close_1h"),
             bid_at_detection=_opt_dec(payload, "bid_at_detection"),
+            devia_zerar_utc=payload.get("devia_zerar_utc"),
+            executado_utc=payload.get("executado_utc"),
+            atraso_execucao_min=_opt_dec(payload, "atraso_execucao_min"),
+            preco_ref_quando_devia=_opt_dec(payload, "preco_ref_quando_devia"),
+            preco_execucao=_opt_dec(payload, "preco_execucao"),
+            diferenca_pct=_opt_dec(payload, "diferenca_pct"),
         )
 
 
@@ -408,6 +429,12 @@ def close_long(
     stop_used: Decimal | None = None,
     close_1h: Decimal | None = None,
     bid_at_detection: Decimal | None = None,
+    devia_zerar_utc: str | None = None,
+    executado_utc: str | None = None,
+    atraso_execucao_min: Decimal | None = None,
+    preco_ref_quando_devia: Decimal | None = None,
+    preco_execucao: Decimal | None = None,
+    diferenca_pct: Decimal | None = None,
 ) -> PaperAction:
     """Simulate a spot sell. Dry-run unless LEDGER_WRITER=1. No exchange call."""
     if ledger.position is None:
@@ -423,6 +450,12 @@ def close_long(
         stop_used=stop_used,
         close_1h=close_1h,
         bid_at_detection=bid_at_detection,
+        devia_zerar_utc=devia_zerar_utc,
+        executado_utc=executado_utc,
+        atraso_execucao_min=atraso_execucao_min,
+        preco_ref_quando_devia=preco_ref_quando_devia,
+        preco_execucao=preco_execucao,
+        diferenca_pct=diferenca_pct,
     )
     if not ledger_writes_enabled(writer):
         return PaperAction(decision=None, applied=False, dry_run=True, trade=trade)
@@ -441,6 +474,12 @@ def _trade_at(
     stop_used: Decimal | None = None,
     close_1h: Decimal | None = None,
     bid_at_detection: Decimal | None = None,
+    devia_zerar_utc: str | None = None,
+    executado_utc: str | None = None,
+    atraso_execucao_min: Decimal | None = None,
+    preco_ref_quando_devia: Decimal | None = None,
+    preco_execucao: Decimal | None = None,
+    diferenca_pct: Decimal | None = None,
 ) -> ClosedTrade:
     assert ledger.position is not None
     position = ledger.position
@@ -461,6 +500,12 @@ def _trade_at(
         stop_used=None if stop_used is None else _D(stop_used),
         close_1h=None if close_1h is None else _D(close_1h),
         bid_at_detection=None if bid_at_detection is None else _D(bid_at_detection),
+        devia_zerar_utc=devia_zerar_utc,
+        executado_utc=executado_utc,
+        atraso_execucao_min=None if atraso_execucao_min is None else _D(atraso_execucao_min),
+        preco_ref_quando_devia=None if preco_ref_quando_devia is None else _D(preco_ref_quando_devia),
+        preco_execucao=None if preco_execucao is None else _D(preco_execucao),
+        diferenca_pct=None if diferenca_pct is None else _D(diferenca_pct),
     )
 
 

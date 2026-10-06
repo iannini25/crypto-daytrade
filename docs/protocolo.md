@@ -64,10 +64,12 @@ Ver `72h-plano.md`. Cada agente: rodadas **multi-passo** (ler → verificar → 
 - Escritores autorizados do ledger (06/10 18:47): a rotina de ciclo (abre/fecha), a checagem de stop (só fecha / figura) e a **proteção pré-evento** (nunca abre). Todo o resto roda em leitura.
 - Proteção pré-evento: `desk.protection.protect_before_event`
   - Sem evento de bloqueio hoje (CPI, payroll, PCE, GDP, FOMC) ou sem posição → noop.
-  - Agenda: 06:05 BRT e depois 09:10, 09:40, a cada 30 minutos. A função age quando é chamada num dia de bloqueio.
+  - Janela padrão: **[T−25min, T]**. Modo madrugada (`madrugada=True`, rotina das 06:05): **00:00 BRT → T**. Fora da janela → noop.
   - PnL marcado ≥ +1,00R → sobe stop para entry×1,003 (`breakeven_+1R_pre_evento`); nunca desce. Fronteira: 0,99R fecha; 1,00R sobe.
+  - Se o breakeven ficaria ≥ bid, ou os candles 15m não puderem ser lidos → fecha com `stop_nao_elevavel`.
   - PnL < +1R → fecha com motivo `pre-<evento>` (ex.: `pre-CPI`).
-  - Preço Bybit com idade >120s (ou indisponível) → `ERROR`, **nenhuma escrita**. Toda execução com cotação imprime `preço Bybit coletado <BRT> (idade Ns)`.
+  - Preço Bybit com idade >120s (ou indisponível): **3 tentativas**. Se continuar sem fresco, grava `pendente_zerar_pre_evento` e **não fecha**. Qualquer run seguinte, mesmo fora da janela, fecha no primeiro preço **fresco** com motivo `execucao_atrasada` e registra `devia_zerar_utc`, `executado_utc`, `atraso_execucao_min`, `preco_ref_quando_devia`, `preco_execucao`, `diferenca_pct`.
+  - Toda execução com cotação imprime `preço Bybit coletado <BRT> (idade Ns)`.
   - Antes de subir o stop: walk com o stop velho até agora, carimba `ultimo_check_utc`, só então faz append `{old, new, at_utc, reason}`.
   - Alternativa manual: `desk.protection.raise_stop_to_breakeven` (motivo `breakeven_+1R`).
 

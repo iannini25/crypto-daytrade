@@ -7,11 +7,11 @@ New entries are blocked:
 - around the built-in CPI on 14 Oct 2026 at 09:30 America/Sao_Paulo
 
 An open long on a blocking-event day (CPI, payroll, PCE, GDP, FOMC) is
-handled by the scheduled paper check in `desk.protection`: 06:05
-America/Sao_Paulo, then 09:10, 09:40, and every 30 minutes after that.
+handled by `desk.protection`. The default window is [T−25min, T]. The
+06:05 America/Sao_Paulo run uses madrugada mode, from 00:00 BRT until T.
 Under +1R the long is closed. At +1R or better the stop is raised to
-entry×1.003 and never lowered. A quote older than 120 seconds, or no quote,
-writes nothing.
+entry×1.003 and never lowered, unless that stop cannot be placed. A quote
+that is still stale after 3 tries flags the position instead of closing it.
 
 `pre_event_action` still recommends the same close-or-raise inside the lock
 window, so a missed scheduled check is not silent. It does not fire for the

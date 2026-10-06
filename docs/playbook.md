@@ -76,15 +76,23 @@ calendar even when `DESK_EVENTS_PATH` is empty.
 ## Pre-event protection
 
 On a blocking-event day (CPI, payroll, PCE, GDP, FOMC) an open long is
-checked on the paper book at **06:05 America/Sao_Paulo**, then at **09:10**,
-**09:40**, and every 30 minutes after that. This schedule replaces waiting
-until 15 minutes before the print.
+checked on the paper book only inside a window. The default window is
+**[T−25 minutes, T]**. The **06:05 America/Sao_Paulo** run is madrugada
+mode: it may act from **00:00 BRT until T**. This replaces waiting until
+15 minutes before the print. Outside that window the check is a noop,
+unless a flatten is already pending.
 
 - marked result under **+1.00R** closes the paper long (`pre-<event>`)
 - **+1.00R** or better raises the stop to **entry × 1.003** and never lowers
   it (`breakeven_+1R_pre_evento`). **0.99R** is not enough to raise
-- a Bybit bid older than **120 seconds**, or no bid, is an error and writes
-  nothing
+- if that breakeven would sit at or above the live bid, or the 15m candles
+  cannot be read, the long is closed (`stop_nao_elevavel`)
+- a Bybit bid older than **120 seconds**, or no bid, is retried **3 times**.
+  If it is still not fresh, the position is flagged
+  `pendente_zerar_pre_evento` and is not closed. A later run closes it at a
+  **fresh** bid with reason `execucao_atrasada`, and records
+  `devia_zerar_utc`, `executado_utc`, `atraso_execucao_min`,
+  `preco_ref_quando_devia`, `preco_execucao`, and `diferenca_pct`
 - every run with a quote prints the collection time in BRT and the age in
   seconds
 

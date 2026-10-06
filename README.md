@@ -25,7 +25,7 @@ into the Bybit website, and this repo will not type it for them.
 | Payoff | Net R:R = (target% − 0.30) / (stop% + 0.30) ≥ 2, i.e. target% ≥ 2×stop% + 0.90, with a **6.9%** target floor |
 | Stop | Structural 1h or daily stop in **3.0–9.66%** and at or under 3×ATR(D). 3.00–3.02% is the 1% zone; above 3.02% through 9.66% needs justification; above 9.66% is rejected. Do not tighten a stop into the middle of the pattern |
 | Day stop | One losing trade ends new entries for that Sao Paulo day. At most 3 trades. One position |
-| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE, GDP. Friday UoM lock 10:45–11:15 BRT. CPI on 14 Oct 2026 at 09:30 BRT stays on the calendar. On that kind of day an open long is checked at 06:05 BRT and at 09:10/09:40/…: under +1.00R it closes; at +1.00R the stop rises to entry×1.003 and never falls. A quote older than 120s writes nothing |
+| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE, GDP. Friday UoM lock 10:45–11:15 BRT. CPI on 14 Oct 2026 at 09:30 BRT stays on the calendar. An open long is handled in [T−25min, T], or from 00:00 BRT until T on the 06:05 madrugada run: under +1.00R it closes; at +1.00R the stop rises to entry×1.003 unless that stop cannot be placed. A quote that is still stale after 3 tries flags the position; a later fresh run closes it late |
 | Kill | No new risk at or below 90% of starting equity |
 | Ledger | Read-only unless `LEDGER_WRITER=1`, and then an exclusive file lock |
 
