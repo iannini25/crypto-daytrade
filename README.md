@@ -19,13 +19,15 @@ into the Bybit website, and this repo will not type it for them.
 | --- | --- |
 | Market | Spot USDT majors: BTC, ETH, SOL |
 | Direction | Long only |
-| Timeframes | Daily HH/HL filter, 15m close as the trigger |
-| Session | 10:00–12:30 America/Sao_Paulo |
-| Fees | VIP0 0.10% per side, **0.20% round trip**, inside size and R:R |
-| Risk | At most 1% of equity at the stop, after fees |
-| Positions | One at a time |
+| Timeframes | Daily HH/HL and close above SMA100. Stop on a 1h or daily swing. 15m close only times the entry. 3×ATR(D) is a ceiling, not a stop |
+| Session | New entries 10:00–12:30 America/Sao_Paulo. Overnight holds are allowed (swing 1–5 days, paper) |
+| Cost | VIP0 0.20% fees + 0.10% slippage = **0.30% round trip** |
+| Payoff | Net R:R = (target% − 0.30) / (stop% + 0.30) ≥ 2, i.e. target% ≥ 2×stop% + 0.90 |
+| Stop | At least 3.0% (cost ≤ 10% of the risk). On a 19.9 USDT book with a 6 USDT minimum: ≤ ~3.02% is the 1% zone, ~3.02–9.65% needs justification, above that is rejected |
+| Day stop | One losing trade ends new entries for that Sao Paulo day. One position |
+| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE. Friday UoM lock 10:45–11:15 BRT. Under +1R, close 15 minutes before; at +1R, stop to entry+costs and hold |
 | Kill | No new risk at or below 90% of starting equity |
-| Payoff | R:R after fees at least 2, or skip |
+| Ledger | Read-only unless `LEDGER_WRITER=1`, and then an exclusive file lock |
 
 Pattern notes (ascending triangle, bull flag, rectangle, double bottom,
 inverse head and shoulders, falling wedge, cup) are in
@@ -51,9 +53,11 @@ python -m desk scan          # dry-run labels; never posts an order
 pytest
 ```
 
-`paper-status --init` writes `data/paper_ledger.json` (gitignored) at the
-paper equity, default 20 USDT. `DESK_BRL_PER_USDT` (default 5) is a display
-hint so 20 USDT reads as about R$100. It is not a live FX rate.
+`paper-status --init` writes `data/paper_ledger.json` (gitignored) only when
+`LEDGER_WRITER=1`. Without that flag the command is a dry run and does not
+create the file. The default paper equity is 19.9 USDT. `DESK_BRL_PER_USDT`
+(default 5) is a display hint so that book reads as about R$100. It is not a
+live FX rate.
 
 Optional flags: `--json` on each command, `--ledger PATH` on `paper-status`
 and `scan`.

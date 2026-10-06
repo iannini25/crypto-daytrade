@@ -20,13 +20,13 @@ def _plan() -> OrderPlan:
     return OrderPlan(
         symbol="SOLUSDT",
         entry=Decimal("100"),
-        stop=Decimal("98"),
-        target=Decimal("110"),
+        stop=Decimal("96.5"),
+        target=Decimal("107.9"),
     )
 
 
 def _account() -> AccountSnapshot:
-    return AccountSnapshot(equity=Decimal("20"), starting_equity=Decimal("20"))
+    return AccountSnapshot(equity=Decimal("19.9"), starting_equity=Decimal("19.9"))
 
 
 def test_confirm_defaults_to_closed(monkeypatch):

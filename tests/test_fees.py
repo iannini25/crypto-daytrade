@@ -3,11 +3,15 @@
 from decimal import Decimal
 
 from desk.fees import (
+    COST_PERCENT,
+    ROUND_TRIP_COST,
     ROUND_TRIP_FEE,
+    SLIPPAGE_ROUND_TRIP,
     VIP0_SIDE_FEE,
     breakeven_win_rate,
     expectancy,
     gross_rr,
+    minimum_target_percent,
     net_gain_per_unit,
     net_loss_per_unit,
     net_rr,
@@ -15,10 +19,13 @@ from desk.fees import (
 )
 
 
-def test_headline_round_trip_is_twenty_bps():
+def test_headline_round_trip_is_twenty_bps_and_cost_is_thirty():
     assert VIP0_SIDE_FEE == Decimal("0.001")
     assert ROUND_TRIP_FEE == Decimal("0.002")
+    assert SLIPPAGE_ROUND_TRIP == Decimal("0.001")
     assert VIP0_SIDE_FEE + VIP0_SIDE_FEE == ROUND_TRIP_FEE
+    assert ROUND_TRIP_FEE + SLIPPAGE_ROUND_TRIP == ROUND_TRIP_COST
+    assert COST_PERCENT == Decimal("0.30")
 
 
 def test_flat_round_trip_loses_exactly_twenty_bps():
@@ -41,6 +48,14 @@ def test_wider_target_clears_two_r_after_fees():
     assert net_loss_per_unit(entry, stop) == Decimal("2.198")
     assert net_gain_per_unit(entry, target) == Decimal("9.79")
     assert net_rr(entry, stop, target) > Decimal("2")
+
+
+def test_net_rr_uses_percent_cost_of_thirty_bps():
+    entry, stop, target = Decimal("100"), Decimal("96.5"), Decimal("107.9")
+    assert net_rr(entry, stop, target) == Decimal("2")
+    assert minimum_target_percent(Decimal("3.5")) == Decimal("7.9")
+    # A 1% stop cannot clear the formula at a 2% target: (2 - 0.30) / (1 + 0.30) < 2.
+    assert net_rr(Decimal("100"), Decimal("99"), Decimal("102")) < Decimal("2")
 
 
 def test_expectancy_breaks_even_at_one_third_for_two_r():

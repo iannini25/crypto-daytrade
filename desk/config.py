@@ -55,11 +55,14 @@ def merged_environ(path: str | Path = ".env", base: dict[str, str] | None = None
 class Config:
     base_url: str = "https://api.bybit.com"
     symbols: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
-    paper_equity_usdt: Decimal = Decimal("20")
+    paper_equity_usdt: Decimal = Decimal("19.9")
     brl_per_usdt: Decimal = Decimal("5")
     ledger_path: str = "data/paper_ledger.json"
+    events_path: str = ""
     fee_rate: Decimal = Decimal("0.001")
     max_risk: Decimal = Decimal("0.01")
+    risk_cap: Decimal = Decimal("0.03")
+    min_order_usdt: Decimal = Decimal("6")
     kill_ratio: Decimal = Decimal("0.90")
     min_rr: Decimal = Decimal("2")
     max_positions: int = 1
@@ -98,15 +101,21 @@ def load_config(env: dict[str, str] | None = None, dotenv_path: str | Path | Non
 
     fee_rate = _decimal_env(source, "DESK_FEE_RATE", "0.001")
     max_risk = _decimal_env(source, "DESK_MAX_RISK", "0.01")
+    risk_cap = _decimal_env(source, "DESK_RISK_CAP", "0.03")
+    min_order = _decimal_env(source, "DESK_MIN_ORDER_USDT", "6")
     kill_ratio = _decimal_env(source, "DESK_KILL_RATIO", "0.90")
     min_rr = _decimal_env(source, "DESK_MIN_RR", "2")
-    equity = _decimal_env(source, "DESK_PAPER_EQUITY_USDT", "20")
+    equity = _decimal_env(source, "DESK_PAPER_EQUITY_USDT", "19.9")
     brl = _decimal_env(source, "DESK_BRL_PER_USDT", "5")
 
     if fee_rate < Decimal("0.001"):
         raise ConfigError("DESK_FEE_RATE cannot be below VIP0 0.10% per side")
     if max_risk <= 0 or max_risk > Decimal("0.01"):
-        raise ConfigError("DESK_MAX_RISK cannot exceed 1% of equity")
+        raise ConfigError("DESK_MAX_RISK cannot exceed the 1% target zone")
+    if risk_cap < max_risk or risk_cap > Decimal("0.03"):
+        raise ConfigError("DESK_RISK_CAP cannot exceed 3% of equity or sit under the 1% target")
+    if min_order < Decimal("6"):
+        raise ConfigError("DESK_MIN_ORDER_USDT cannot be below 6")
     if kill_ratio < Decimal("0.90") or kill_ratio >= Decimal("1"):
         raise ConfigError("DESK_KILL_RATIO cannot be looser than 0.90 and must be below 1")
     if min_rr < Decimal("2"):
@@ -140,8 +149,11 @@ def load_config(env: dict[str, str] | None = None, dotenv_path: str | Path | Non
         brl_per_usdt=brl,
         ledger_path=source.get("DESK_LEDGER_PATH", "data/paper_ledger.json").strip()
         or "data/paper_ledger.json",
+        events_path=source.get("DESK_EVENTS_PATH", "").strip(),
         fee_rate=fee_rate,
         max_risk=max_risk,
+        risk_cap=risk_cap,
+        min_order_usdt=min_order,
         kill_ratio=kill_ratio,
         min_rr=min_rr,
         max_positions=1,

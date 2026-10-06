@@ -1,50 +1,71 @@
-"""Risk gate: 1% risk, one position, kill at 90%, R:R after fees >= 2."""
+"""Risk gate: cost bands, net R:R, one position, kill switch, loss lock."""
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 
 from desk.config import ConfigError, load_config
+from desk.events import MacroEvent
 from desk.risk import AccountSnapshot, OrderPlan, evaluate
 
 
 def _plan(**overrides) -> OrderPlan:
+    # 3.5% stop, 7.9% target: net R:R = (7.9 - 0.30) / (3.5 + 0.30) = 2.
     fields = dict(
         symbol="BTCUSDT",
         entry=Decimal("100"),
-        stop=Decimal("98"),
-        target=Decimal("110"),
+        stop=Decimal("96.5"),
+        target=Decimal("107.9"),
     )
     fields.update(overrides)
     return OrderPlan(**fields)
 
 
 def _account(**overrides) -> AccountSnapshot:
-    fields = dict(equity=Decimal("20"), starting_equity=Decimal("20"), open_positions=0)
+    fields = dict(equity=Decimal("19.9"), starting_equity=Decimal("19.9"), open_positions=0)
     fields.update(overrides)
     return AccountSnapshot(**fields)
 
 
-def test_sized_qty_risks_at_most_one_percent():
+def test_stop_one_percent_is_rejected_by_the_cost_rule():
+    decision = evaluate(_plan(stop=Decimal("99"), target=Decimal("110")), _account())
+    assert not decision.allowed
+    assert decision.stop_band == "cost_reject"
+    assert decision.qty == 0
+    assert any("cost rule" in reason for reason in decision.reasons)
+    assert decision.min_stop_percent == Decimal("3.0")
+
+
+def test_stop_3_5_percent_with_target_7_9_percent_is_accepted():
     decision = evaluate(_plan(), _account())
     assert decision.allowed
+    assert decision.stop_percent == Decimal("3.5")
+    assert decision.target_percent == Decimal("7.9")
+    assert decision.rr_after_fees == Decimal("2")
+    assert decision.stop_band == "exception"
+    assert "justification" in decision.band_label
+    assert decision.qty > 0
+    assert decision.notional >= Decimal("6")
+    assert decision.risk_fraction <= Decimal("0.03")
+    assert "1% zone" in decision.summary or "exception" in decision.summary
+
+
+def test_stop_11_7_percent_is_rejected_by_the_account_cap():
+    decision = evaluate(_plan(stop=Decimal("88.3"), target=Decimal("130")), _account())
+    assert not decision.allowed
+    assert decision.stop_band == "account_cap"
+    assert decision.qty == 0
+    assert any("account cap" in reason for reason in decision.reasons)
+    assert decision.cap_stop_percent < Decimal("11.7")
+
+
+def test_three_percent_stop_sits_in_the_one_percent_zone():
+    decision = evaluate(_plan(stop=Decimal("97"), target=Decimal("106.9")), _account())
+    assert decision.allowed
+    assert decision.stop_band == "target_1pct"
     assert decision.risk_fraction <= Decimal("0.01")
     assert decision.risk_fraction > Decimal("0.009")
-    assert decision.rr_after_fees > Decimal("2")
-    assert decision.qty > 0
-    assert decision.notional == decision.qty * Decimal("100")
-
-
-def test_gross_two_r_is_rejected_after_fees():
-    decision = evaluate(
-        _plan(entry=Decimal("100"), stop=Decimal("99"), target=Decimal("102")),
-        _account(),
-    )
-    assert not decision.allowed
-    assert decision.gross_rr == Decimal("2")
-    assert decision.rr_after_fees < Decimal("2")
-    assert decision.qty == 0
-    assert any("R:R after fees" in reason for reason in decision.reasons)
 
 
 def test_kill_switch_at_exactly_ninety_percent():
@@ -57,13 +78,17 @@ def test_kill_switch_at_exactly_ninety_percent():
     assert open_.allowed
 
 
-def test_second_position_is_blocked():
-    decision = evaluate(_plan(), _account(open_positions=1))
-    assert not decision.allowed
-    assert any(reason.startswith("max 1") for reason in decision.reasons)
+def test_second_position_and_a_loss_today_are_blocked():
+    second = evaluate(_plan(), _account(open_positions=1))
+    assert not second.allowed
+    assert any(reason.startswith("max 1") for reason in second.reasons)
+
+    lost = evaluate(_plan(), _account(losses_today=1))
+    assert not lost.allowed
+    assert any(reason.startswith("loss lock") for reason in lost.reasons)
 
 
-def test_short_and_perp_are_blocked():
+def test_short_perp_and_15m_stop_are_blocked():
     short = evaluate(_plan(side="Sell"), _account())
     assert not short.allowed
     assert any("long-only" in reason for reason in short.reasons)
@@ -72,21 +97,49 @@ def test_short_and_perp_are_blocked():
     assert not perp.allowed
     assert any("spot only" in reason for reason in perp.reasons)
 
+    micro = evaluate(_plan(stop_anchor="15m"), _account())
+    assert not micro.allowed
+    assert any("15m" in reason for reason in micro.reasons)
 
-def test_requested_qty_over_one_percent_is_rejected():
-    decision = evaluate(_plan(), _account(), requested_qty=Decimal("10"))
+
+def test_atr_ceiling_rejects_a_wider_structure_stop():
+    decision = evaluate(_plan(atr_ceiling=Decimal("1")), _account())
     assert not decision.allowed
-    assert any("1%" in reason for reason in decision.reasons)
+    assert any("3xATR" in reason for reason in decision.reasons)
 
 
-def test_tight_stop_is_cash_capped_below_one_percent_risk():
-    decision = evaluate(
-        _plan(entry=Decimal("100"), stop=Decimal("99.9"), target=Decimal("102")),
+def test_session_and_event_locks_block_new_entries():
+    outside = evaluate(
+        _plan(),
         _account(),
+        now=datetime(2026, 10, 6, 2, 0, tzinfo=timezone.utc),
     )
-    assert decision.allowed
-    assert decision.cash_limited
-    assert decision.risk_fraction < Decimal("0.01")
+    assert not outside.allowed
+    assert any(reason.startswith("outside 10:00") for reason in outside.reasons)
+
+    friday_uom = evaluate(
+        _plan(),
+        _account(),
+        now=datetime(2026, 10, 9, 14, 0, tzinfo=timezone.utc),
+    )
+    assert not friday_uom.allowed
+    assert any("UoM" in reason for reason in friday_uom.reasons)
+
+    cpi = MacroEvent(name="CPI", at=datetime(2026, 10, 13, 12, 30, tzinfo=timezone.utc))
+    locked = evaluate(
+        _plan(),
+        _account(),
+        now=datetime(2026, 10, 13, 12, 20, tzinfo=timezone.utc),
+        events=(cpi,),
+    )
+    assert not locked.allowed
+    assert any("CPI" in reason for reason in locked.reasons)
+
+
+def test_requested_qty_over_the_cap_is_rejected():
+    decision = evaluate(_plan(), _account(), requested_qty=Decimal("1"))
+    assert not decision.allowed
+    assert any("3%" in reason for reason in decision.reasons)
 
 
 def test_fee_rate_below_vip0_is_rejected():
@@ -98,6 +151,10 @@ def test_fee_rate_below_vip0_is_rejected():
 def test_config_refuses_looser_rules():
     with pytest.raises(ConfigError):
         load_config({"DESK_MAX_RISK": "0.02"})
+    with pytest.raises(ConfigError):
+        load_config({"DESK_RISK_CAP": "0.05"})
+    with pytest.raises(ConfigError):
+        load_config({"DESK_MIN_ORDER_USDT": "1"})
     with pytest.raises(ConfigError):
         load_config({"DESK_KILL_RATIO": "0.50"})
     with pytest.raises(ConfigError):
@@ -111,5 +168,6 @@ def test_config_refuses_looser_rules():
     assert tighter.max_risk == Decimal("0.005")
     assert tighter.min_rr == Decimal("3")
     assert tighter.kill_ratio == Decimal("0.95")
+    assert tighter.risk_cap == Decimal("0.03")
     assert tighter.api_key_set is False
-    assert "secret" not in repr(tighter).lower() or "api_secret_set=False" in repr(tighter)
+    assert "api_secret_set=False" in repr(tighter)

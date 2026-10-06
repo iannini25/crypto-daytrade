@@ -62,6 +62,7 @@ def test_paper_status_without_a_file(capsys, tmp_path, monkeypatch):
 
 def test_paper_status_init_and_json(capsys, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LEDGER_WRITER", "1")
     path = tmp_path / "ledger.json"
     code = main(["paper-status", "--init", "--json", "--ledger", str(path)])
     captured = capsys.readouterr()
@@ -71,7 +72,21 @@ def test_paper_status_init_and_json(capsys, tmp_path, monkeypatch):
     assert payload["live_order_placement"] == "disabled"
     assert payload["persisted"] is True
     assert path.is_file()
-    assert Decimal(payload["starting_equity"]) == Decimal("20")
+    assert Decimal(payload["starting_equity"]) == Decimal("19.9")
+    assert payload["ledger_writer"] is True
+    assert payload["live_order_placement"] == "disabled"
+
+
+def test_paper_status_init_stays_dry_run_without_the_writer_flag(capsys, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("LEDGER_WRITER", raising=False)
+    path = tmp_path / "ledger.json"
+    code = main(["paper-status", "--init", "--ledger", str(path)])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert not path.exists()
+    assert "dry-run" in captured.out
+    assert "live_order_placement=disabled" in captured.out
 
 
 def test_dotenv_parser_keeps_secrets_out_of_the_result_shape():

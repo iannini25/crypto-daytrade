@@ -79,6 +79,7 @@ def test_ascending_triangle_confirms_on_close_but_is_not_two_r():
     row = analyze(
         "BTCUSDT",
         daily,
+        [],
         structure + [signal],
         account,
         datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
@@ -106,21 +107,26 @@ def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
     labelled = classify(structure + [signal])
     assert labelled is not None and labelled.name == "bull_flag" and labelled.confirmed
 
-    account = AccountSnapshot(equity=Decimal("20"), starting_equity=Decimal("20"))
+    account = AccountSnapshot(equity=Decimal("19.9"), starting_equity=Decimal("19.9"))
+    daily, hourly = _daily_and_hourly_for(Decimal("109.1"))
     inside = analyze(
         "BTCUSDT",
-        _uptrend_daily(),
+        daily,
+        hourly,
         structure + [signal],
         account,
         datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
     )
     assert inside.disposition == "paper_candidate"
-    assert inside.rr_after_fees > Decimal("2")
+    assert inside.above_sma100
+    assert inside.stop_anchor == "1h"
+    assert inside.rr_after_fees is not None and inside.rr_after_fees >= Decimal("2")
     assert any("no order sent" in note for note in inside.notes)
 
     outside = analyze(
         "BTCUSDT",
-        _uptrend_daily(),
+        daily,
+        hourly,
         structure + [signal],
         account,
         datetime(2026, 10, 6, 2, 0, tzinfo=timezone.utc),
@@ -131,6 +137,7 @@ def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
     no_trend = analyze(
         "BTCUSDT",
         [candle(i, 10, 9, Decimal("9.5"), step_ms=86_400_000) for i in range(12)],
+        hourly,
         structure + [signal],
         account,
         datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
@@ -209,6 +216,51 @@ def test_wedge_cup_inverse_head_and_shoulders_and_rectangle():
             high, low, close = Decimal("99.5"), Decimal("97.4"), Decimal("98.4")
         rectangle.append(candle(index, high, low, close))
     assert match_rectangle(rectangle).name == "rectangle"
+
+
+def _daily_and_hourly_for(entry: Decimal) -> tuple[list[Candle], list[Candle]]:
+    """Rising daily book above SMA100, plus a later 1h swing about 3.5% under entry."""
+    daily: list[Candle] = []
+    for index in range(103):
+        close = Decimal("70") + Decimal(index) * Decimal("0.3")
+        daily.append(
+            candle(index, close + Decimal("2"), close - Decimal("2"), close, step_ms=86_400_000)
+        )
+    tail = [
+        (Decimal("108"), Decimal("104"), Decimal("106")),
+        (Decimal("112"), Decimal("107"), Decimal("110")),
+        (Decimal("109"), Decimal("105"), Decimal("107")),
+        (Decimal("115"), Decimal("108"), Decimal("112")),
+        (Decimal("111"), Decimal("106"), Decimal("109")),
+        (Decimal("118"), Decimal("110"), Decimal("114")),
+        (Decimal("113"), Decimal("108"), Decimal("111")),
+    ]
+    for offset, (high, low, close) in enumerate(tail):
+        daily.append(candle(103 + offset, high, low, close, step_ms=86_400_000))
+    stop = entry * Decimal("0.965")
+    hourly = []
+    base = daily[-1].start_ms
+    for index in range(30):
+        low = entry - Decimal("1")
+        high = entry
+        close = entry - Decimal("0.4")
+        if index == 20:
+            low = stop
+            high = stop + Decimal("0.4")
+            close = stop + Decimal("0.2")
+        bar = candle(index, high, low, close, step_ms=3_600_000)
+        hourly.append(
+            Candle(
+                start_ms=base + (index + 1) * 3_600_000,
+                open=bar.open,
+                high=bar.high,
+                low=bar.low,
+                close=bar.close,
+                volume=bar.volume,
+                turnover=bar.turnover,
+            )
+        )
+    return daily, hourly
 
 
 def _uptrend_daily() -> list[Candle]:
