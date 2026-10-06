@@ -34,7 +34,7 @@ from desk.fees import (
     stop_percent,
     target_percent,
 )
-from desk.patterns import REVERSAL_LONG, long_entry_allowed, pattern_role
+from desk.patterns import long_entry_allowed, pattern_role
 
 QTY_STEP = Decimal("0.00000001")
 
@@ -68,7 +68,7 @@ class OrderPlan:
     atr_ceiling: Decimal | None = None
     # Playbook name. None skips the catalog check (cost-only plans).
     pattern: str | None = None
-    # "15m", "1h", or "D": where the pattern is drawn. 15m only times a close.
+    # "1h" or "D": where the pattern is drawn. 15m only confirms the close.
     pattern_timeframe: str | None = None
     # Structural low of the pattern. A stop above this price sits inside it.
     pattern_low: Decimal | None = None
@@ -276,16 +276,11 @@ def _pattern_reasons(plan: OrderPlan) -> list[str]:
     if role != "active":
         return [f"pattern {plan.pattern} is not an active long in playbook v1"]
     timeframe = plan.pattern_timeframe
-    if timeframe is None:
-        if plan.pattern in REVERSAL_LONG:
-            return [
-                "reversal patterns are active only on 1h or daily; 15m only confirms the close"
-            ]
-        return []
-    if not long_entry_allowed(plan.pattern, timeframe):
+    if not long_entry_allowed(plan.pattern, timeframe or ""):
+        shown = timeframe or "15m"
         return [
-            f"{plan.pattern} on {timeframe} is not an active long; "
-            "15m only confirms a close, and reversals are 1h or daily"
+            f"{plan.pattern} on {shown} is not an active long; "
+            "the pattern is drawn on 1h or daily, and 15m only confirms the close"
         ]
     return []
 

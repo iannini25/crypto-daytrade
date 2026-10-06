@@ -4,6 +4,7 @@ New entries are blocked:
 
 - from 15 minutes before until 15 minutes after CPI, FOMC, payroll, or PCE
 - on Fridays 10:45–11:15 America/Sao_Paulo (University of Michigan window)
+- around the built-in CPI on 14 Oct 2026 at 09:30 America/Sao_Paulo
 
 Fifteen minutes before a lock, an open long is handled on the paper ledger
 only when LEDGER_WRITER=1:
@@ -21,12 +22,14 @@ from decimal import Decimal
 from pathlib import Path
 
 from desk.fees import COST_PERCENT, ROUND_TRIP_COST
-from desk.session import sao_paulo_now
+from desk.session import SAO_PAULO, sao_paulo_now
 
 MACRO_NAMES = frozenset({"CPI", "FOMC", "payroll", "PCE"})
 LOCK_PAD = timedelta(minutes=15)
 UOM_START = time(10, 45)
 UOM_END = time(11, 15)
+# Checklist item 11. 14 Oct 2026, 09:30 America/Sao_Paulo (12:30 UTC).
+CPI_2026_10_14 = datetime(2026, 10, 14, 9, 30, tzinfo=SAO_PAULO)
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,9 @@ class MacroEvent:
             raise ValueError(f"event must be one of {sorted(MACRO_NAMES)}")
         if self.at.tzinfo is None:
             raise ValueError("event time must be timezone-aware")
+
+
+BUILTIN_EVENTS = (MacroEvent(name="CPI", at=CPI_2026_10_14),)
 
 
 @dataclass(frozen=True)
@@ -83,11 +89,18 @@ def _active_macro(now: datetime, events: tuple[MacroEvent, ...]) -> MacroEvent |
     return None
 
 
+def with_builtin_events(events: tuple[MacroEvent, ...] = ()) -> tuple[MacroEvent, ...]:
+    """JSON events plus the playbook's CPI on 14 Oct 2026 at 09:30 BRT."""
+    seen = {(event.name, event.at) for event in events}
+    extra = tuple(event for event in BUILTIN_EVENTS if (event.name, event.at) not in seen)
+    return events + extra
+
+
 def entry_lock(now: datetime, events: tuple[MacroEvent, ...] = ()) -> str | None:
     """Reason string when a new entry is blocked, else None."""
     if friday_uom_lock(now):
         return "event lock: Friday UoM 10:45-11:15 America/Sao_Paulo"
-    event = _active_macro(now, events)
+    event = _active_macro(now, with_builtin_events(events))
     if event is not None:
         return f"event lock: no new entries within 15 minutes of {event.name}"
     return None
@@ -123,7 +136,7 @@ def pre_event_action(
 
     Outside that window the kind is `none` (overnight holds are allowed).
     """
-    trigger = _management_window(now, events)
+    trigger = _management_window(now, with_builtin_events(events))
     if trigger is None:
         return EventAction("none", "no lock inside the management window")
     multiple = net_r_multiple(entry, stop, mark)
@@ -159,7 +172,11 @@ def _management_window(now: datetime, events: tuple[MacroEvent, ...]) -> str | N
 
 
 def hold_horizon(opened_at: datetime, now: datetime) -> str:
-    """Overnight is allowed. The swing horizon is 1 to 5 days."""
+    """Overnight is allowed. The swing horizon is 1 to 5 days.
+
+    The stop stays live for those days, including outside 10:00–12:30.
+    A gap through the stop fills at the open (`desk.paper.stop_fill_price`).
+    """
     if opened_at.tzinfo is None or now.tzinfo is None:
         raise ValueError("timestamps must be timezone-aware")
     days = (now - opened_at).total_seconds() / 86400

@@ -25,6 +25,24 @@ class PaperError(ValueError):
     """Ledger refused a simulated fill."""
 
 
+def stop_fill_price(stop: Decimal, open_: Decimal, low: Decimal) -> Decimal | None:
+    """Paper stop, checked on every candle, including outside the entry window.
+
+    A long is stopped when the bar trades at or through `stop`. If the bar
+    opens through the stop, the fill is the open (the gap). Otherwise the
+    fill is the stop. The swing may stay open 1 to 5 days; this check does
+    not wait for 10:00–12:30.
+    """
+    stop = _D(stop)
+    open_ = _D(open_)
+    low = _D(low)
+    if open_ <= stop:
+        return open_
+    if low <= stop:
+        return stop
+    return None
+
+
 def _D(value: Decimal | int | str) -> Decimal:
     if isinstance(value, Decimal):
         return value

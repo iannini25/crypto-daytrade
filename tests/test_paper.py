@@ -15,6 +15,7 @@ from desk.paper import (
     manage_into_event,
     open_long,
     save_ledger,
+    stop_fill_price,
 )
 from desk.risk import OrderPlan
 
@@ -28,6 +29,12 @@ def _plan() -> OrderPlan:
         stop=Decimal("96.5"),
         target=Decimal("107.9"),
     )
+
+
+def test_stop_is_live_outside_the_window_and_a_gap_fills_at_the_open():
+    assert stop_fill_price(Decimal("96.5"), Decimal("100"), Decimal("97")) is None
+    assert stop_fill_price(Decimal("96.5"), Decimal("100"), Decimal("96.5")) == Decimal("96.5")
+    assert stop_fill_price(Decimal("96.5"), Decimal("96"), Decimal("95")) == Decimal("96")
 
 
 def test_open_and_flat_close_match_fee_formula(tmp_path, monkeypatch):

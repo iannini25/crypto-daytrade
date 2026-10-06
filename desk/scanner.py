@@ -1,9 +1,10 @@
 """Dry-run scanner.
 
-Daily HH/HL and a close above SMA100 filter the long. The stop is the latest
-1h or daily swing low, inside 3.0–9.66% and at or under 3x daily ATR. The 15m
-close only times the entry, and only inside 10:00–12:30 America/Sao_Paulo.
-Active patterns are long-only. Exit-only names never become a long or a short.
+Daily HH/HL and a close above SMA100 filter the long. The pattern itself is
+drawn on the 1h or the daily chart. The stop is that structure, inside
+3.0–9.66% and at or under 3x daily ATR. The 15m close only confirms the
+entry, and only inside 10:00–12:30 America/Sao_Paulo. Active patterns are
+long-only. Exit-only names never become a long or a short.
 
 This module does not import the order helper and does not write the ledger.
 """
@@ -16,7 +17,7 @@ from decimal import Decimal
 
 from desk.bybit import Candle
 from desk.events import MacroEvent, entry_lock
-from desk.patterns import REVERSAL_LONG, classify, daily_hh_hl, long_entry_allowed, pattern_role
+from desk.patterns import daily_hh_hl, detect, long_entry_allowed, pattern_role
 from desk.risk import AccountSnapshot, OrderPlan, evaluate
 from desk.session import in_liquidity_window
 from desk.structure import above_sma100, atr_ceiling, sma, structure_stop
@@ -69,9 +70,9 @@ def analyze(
     elif not trend_average:
         notes.append("daily close is not above SMA100")
 
-    match = classify(m15) if len(m15) >= 15 else None
-    if match is None:
-        notes.append("no playbook pattern on closed 15m bars; nothing to time")
+    drawn = _pattern_on_1h_or_daily(hourly, daily)
+    if drawn is None:
+        notes.append("no active pattern on 1h or daily; 15m only confirms a close")
         return _row(
             symbol,
             window,
@@ -84,15 +85,14 @@ def analyze(
             "n/a",
             None,
             None,
-            "ignore",
+            "watch" if trend else "ignore",
             notes,
         )
 
-    role = pattern_role(match.name)
-    timing_ok = long_entry_allowed(match.name, "15m")
+    match, entry_tf, role = drawn
     if role == "exit_only":
         notes.append(
-            f"15m {match.name} is exit-only: never open a short and never open a new long"
+            f"{entry_tf} {match.name} is exit-only: never open a short and never open a new long"
         )
         return _row(
             symbol,
@@ -109,48 +109,39 @@ def analyze(
             "exit_only",
             notes,
         )
-    if timing_ok:
-        notes.append(f"15m timing label {match.name}; stop is not taken from this box")
-    elif match.name in REVERSAL_LONG:
-        notes.append(
-            f"15m {match.name} only confirms a close; the reversal itself has to be on 1h or daily"
+    if role != "active":
+        notes.append(f"{entry_tf} {match.name} is outside playbook v1; not a paper entry")
+        return _row(
+            symbol,
+            window,
+            trend,
+            trend_average,
+            match.name,
+            match.height_pct,
+            False,
+            None,
+            "n/a",
+            None,
+            None,
+            "watch" if trend else "ignore",
+            notes,
         )
-    else:
-        notes.append(f"15m {match.name} is outside playbook v1; a 15m close is not an entry")
-    if not match.confirmed and timing_ok:
-        notes.append("15m close has not cleared resistance")
 
-    entry_name = match.name if timing_ok else None
-    entry_tf = "15m" if timing_ok else None
+    entry_name = match.name
     entry_target = match.target
-    close_confirmed = match.confirmed if timing_ok else False
-    if not timing_ok:
-        promoted = _reversal_confirmed_by_15m(hourly, daily, m15)
-        if promoted is None:
-            return _row(
-                symbol,
-                window,
-                trend,
-                trend_average,
-                match.name,
-                match.height_pct,
-                False,
-                None,
-                "n/a",
-                None,
-                None,
-                "watch" if trend else "ignore",
-                notes,
+    if not m15:
+        notes.append("no 15m close; the pattern is on 1h/D and 15m only confirms")
+        close_confirmed = False
+        entry = match.resistance
+    else:
+        close_confirmed = m15[-1].close > match.resistance
+        entry = m15[-1].close if close_confirmed else match.resistance
+        if close_confirmed:
+            notes.append(
+                f"{entry_tf} {entry_name} confirmed by a 15m close; the 15m chart does not draw the pattern"
             )
-        labelled, entry_tf = promoted
-        entry_name = labelled.name
-        entry_target = labelled.target
-        close_confirmed = True
-        notes.append(
-            f"{entry_tf} {entry_name} timed by a 15m close above the level; not a 15m pattern entry"
-        )
-
-    entry = m15[-1].close if close_confirmed else match.resistance
+        else:
+            notes.append("15m close has not cleared the 1h/D level")
     anchored = structure_stop(hourly, daily, entry)
     ceiling = atr_ceiling(daily)
     if anchored is None:
@@ -250,27 +241,27 @@ def analyze(
     )
 
 
-def _reversal_confirmed_by_15m(
-    hourly: list[Candle],
-    daily: list[Candle],
-    m15: list[Candle],
-):
-    """A 1h or daily reversal whose neckline a 15m close has cleared.
+def _pattern_on_1h_or_daily(hourly: list[Candle], daily: list[Candle]):
+    """Pattern drawn on 1h, otherwise on the daily chart.
 
-    The 15m chart does not own the pattern. It only times the entry.
+    An exit-only name on either timeframe vetoes a new long. The 15m series
+    is not consulted: it only confirms a close.
     """
-    if not m15:
-        return None
-    close = m15[-1].close
+    exit_hit = None
+    active_hit = None
+    other = None
     for series, timeframe in ((hourly, "1h"), (daily, "D")):
-        if len(series) < 15:
+        found = detect(series) if len(series) >= 15 else None
+        if found is None:
             continue
-        labelled = classify(series)
-        if labelled is None or labelled.name not in REVERSAL_LONG:
-            continue
-        if close > labelled.resistance:
-            return labelled, timeframe
-    return None
+        role = pattern_role(found.name)
+        if role == "exit_only" and exit_hit is None:
+            exit_hit = (found, timeframe, role)
+        elif long_entry_allowed(found.name, timeframe) and active_hit is None:
+            active_hit = (found, timeframe, role)
+        elif other is None:
+            other = (found, timeframe, role)
+    return exit_hit or active_hit or other
 
 
 def _row(

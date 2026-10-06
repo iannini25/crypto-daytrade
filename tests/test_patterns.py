@@ -87,11 +87,11 @@ def test_ascending_triangle_confirms_on_close_but_is_not_two_r():
         datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
     )
     assert row.daily_hh_hl
-    assert row.close_confirmed
+    assert row.close_confirmed is False
     assert row.in_window
     assert row.disposition == "watch"
-    assert row.rr_after_fees is not None and row.rr_after_fees < Decimal("2")
-    assert any("no order sent" not in note for note in row.notes)
+    assert row.pattern is None
+    assert any("1h or daily" in note for note in row.notes)
 
 
 def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
@@ -110,17 +110,27 @@ def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
     assert labelled is not None and labelled.name == "bull_flag" and labelled.confirmed
 
     account = AccountSnapshot(equity=Decimal("19.9"), starting_equity=Decimal("19.9"))
-    daily, hourly = _daily_and_hourly_for(Decimal("109.1"))
-    inside = analyze(
+    when = datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc)
+    fifteen_only = analyze(
         "BTCUSDT",
-        daily,
-        hourly,
+        _uptrend_daily(),
+        [],
         structure + [signal],
         account,
-        datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
+        when,
     )
+    assert fifteen_only.disposition != "paper_candidate"
+    assert fifteen_only.pattern is None
+    assert any("1h or daily" in note for note in fifteen_only.notes)
+
+    daily, _unused = _daily_and_hourly_for(Decimal("110"))
+    hourly = _hourly_bull_flag(daily[-1].start_ms)
+    m15 = [candle(0, "110.2", "109.6", "110")]
+    inside = analyze("BTCUSDT", daily, hourly, m15, account, when)
+    assert inside.pattern == "bull_flag"
     assert inside.disposition == "paper_candidate"
     assert inside.above_sma100
+    assert inside.close_confirmed
     assert inside.stop_anchor == "1h"
     assert inside.rr_after_fees is not None and inside.rr_after_fees >= Decimal("2")
     assert any("no order sent" in note for note in inside.notes)
@@ -129,7 +139,7 @@ def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
         "BTCUSDT",
         daily,
         hourly,
-        structure + [signal],
+        m15,
         account,
         datetime(2026, 10, 6, 2, 0, tzinfo=timezone.utc),
     )
@@ -140,9 +150,9 @@ def test_bull_flag_can_be_a_paper_candidate_inside_the_window():
         "BTCUSDT",
         [candle(i, 10, 9, Decimal("9.5"), step_ms=86_400_000) for i in range(12)],
         hourly,
-        structure + [signal],
+        m15,
         account,
-        datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
+        when,
     )
     assert no_trend.disposition == "ignore"
     assert no_trend.daily_hh_hl is False
@@ -152,7 +162,8 @@ def test_15m_reversal_and_cup_are_not_paper_candidates():
     assert pattern_role("bull_flag") == "active"
     assert pattern_role("double_top") == "exit_only"
     assert pattern_role("cup") == "out"
-    assert long_entry_allowed("bull_flag", "15m")
+    assert long_entry_allowed("bull_flag", "15m") is False
+    assert long_entry_allowed("bull_flag", "1h")
     assert long_entry_allowed("double_bottom", "15m") is False
     assert long_entry_allowed("double_bottom", "D")
     assert long_entry_allowed("bear_flag", "1h") is False
@@ -173,18 +184,17 @@ def test_15m_reversal_and_cup_are_not_paper_candidates():
         bars.append(candle(index, high, low, close))
     signal = candle(16, "102", "101", "101.5")
     account = AccountSnapshot(equity=Decimal("19.9"), starting_equity=Decimal("19.9"))
-    daily, hourly = _daily_and_hourly_for(Decimal("101.5"))
     row = analyze(
         "BTCUSDT",
-        daily,
-        hourly,
+        _uptrend_daily(),
+        [],
         bars + [signal],
         account,
         datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
     )
-    assert row.pattern == "double_bottom"
+    assert row.pattern != "double_bottom"
     assert row.disposition == "watch"
-    assert any("only confirms a close" in note for note in row.notes)
+    assert any("1h or daily" in note for note in row.notes)
 
     cup = []
     for index in range(30):
@@ -193,15 +203,15 @@ def test_15m_reversal_and_cup_are_not_paper_candidates():
         cup.append(candle(index, low + Decimal("0.4"), low, low + Decimal("0.2")))
     cup_row = analyze(
         "ETHUSDT",
-        daily,
-        hourly,
+        _uptrend_daily(),
+        [],
         cup + [candle(30, "101", "100", "100.6")],
         account,
         datetime(2026, 10, 6, 14, 0, tzinfo=timezone.utc),
     )
-    assert cup_row.pattern == "cup"
+    assert cup_row.pattern is None
     assert cup_row.disposition != "paper_candidate"
-    assert any("outside playbook" in note for note in cup_row.notes)
+    assert any("1h or daily" in note for note in cup_row.notes)
 
 
 def test_double_bottom_neckline():
@@ -274,6 +284,45 @@ def test_wedge_cup_inverse_head_and_shoulders_and_rectangle():
             high, low, close = Decimal("99.5"), Decimal("97.4"), Decimal("98.4")
         rectangle.append(candle(index, high, low, close))
     assert match_rectangle(rectangle).name == "rectangle"
+
+
+def _hourly_bull_flag(after_ms: int) -> list[Candle]:
+    """1h bull flag whose base is 3.5% under a 110 breakout. Not a 15m drawing."""
+    bars: list[Candle] = []
+    for index in range(20):
+        close = Decimal("100") + Decimal(index) * Decimal("9.2") / Decimal("19")
+        high = close + Decimal("0.6")
+        bars.append(candle(index, high, close - Decimal("0.4"), close, step_ms=3_600_000))
+    flag_closes = [
+        Decimal("109"),
+        Decimal("108.8"),
+        Decimal("108.7"),
+        Decimal("108.6"),
+        Decimal("108.5"),
+        Decimal("108.4"),
+        Decimal("108.3"),
+        Decimal("108.2"),
+        Decimal("107.4"),
+        Decimal("108.8"),
+    ]
+    for offset, close in enumerate(flag_closes):
+        low = Decimal("106.15") if offset == 8 else close - Decimal("0.3")
+        bars.append(candle(20 + offset, Decimal("109.5"), low, close, step_ms=3_600_000))
+    origin = bars[0].start_ms
+    shifted: list[Candle] = []
+    for bar in bars:
+        shifted.append(
+            Candle(
+                start_ms=after_ms + (bar.start_ms - origin) + 3_600_000,
+                open=bar.open,
+                high=bar.high,
+                low=bar.low,
+                close=bar.close,
+                volume=bar.volume,
+                turnover=bar.turnover,
+            )
+        )
+    return shifted
 
 
 def _daily_and_hourly_for(entry: Decimal) -> tuple[list[Candle], list[Candle]]:

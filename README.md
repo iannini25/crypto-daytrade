@@ -19,21 +19,22 @@ into the Bybit website, and this repo will not type it for them.
 | --- | --- |
 | Market | Spot USDT majors: BTC, ETH, SOL |
 | Direction | Long only |
-| Timeframes | Daily HH/HL and close above SMA100. Stop on a 1h or daily swing. 15m close only times the entry. 3×ATR(D) is a ceiling, not a stop |
-| Session | New entries 10:00–12:30 America/Sao_Paulo. Overnight holds are allowed (swing 1–5 days, paper) |
+| Timeframes | Daily HH/HL and close above SMA100. Pattern and stop on 1h or daily. 15m close only confirms the entry. 3×ATR(D) is a ceiling, not a stop |
+| Session | New entries 10:00–12:30 America/Sao_Paulo. Overnight holds are allowed (swing 1–5 days, paper). The stop is checked 24h; a gap through it fills at the open |
 | Cost | VIP0 0.20% fees + 0.10% slippage = **0.30% round trip** |
 | Payoff | Net R:R = (target% − 0.30) / (stop% + 0.30) ≥ 2, i.e. target% ≥ 2×stop% + 0.90, with a **6.9%** target floor |
 | Stop | Structural 1h or daily stop in **3.0–9.66%** and at or under 3×ATR(D). 3.00–3.02% is the 1% zone; above 3.02% through 9.66% needs justification; above 9.66% is rejected. Do not tighten a stop into the middle of the pattern |
 | Day stop | One losing trade ends new entries for that Sao Paulo day. At most 3 trades. One position |
-| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE. Friday UoM lock 10:45–11:15 BRT. Under +1R, close 15 minutes before; at +1R, stop to entry+costs and hold |
+| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE. Friday UoM lock 10:45–11:15 BRT. CPI on 14 Oct 2026 at 09:30 BRT is built in: by 09:15, close, or hold only if at least +1R with the stop at entry+costs |
 | Kill | No new risk at or below 90% of starting equity |
 | Ledger | Read-only unless `LEDGER_WRITER=1`, and then an exclusive file lock |
 
 Pattern notes are in [docs/playbook.md](docs/playbook.md). The approved
 catalog (Portuguese, v1) is
 [docs/playbook-padroes-v1.md](docs/playbook-padroes-v1.md): active patterns
-are long-only; exit-only patterns never open a short or a new long; 15m
-only confirms a close. A 1R measured move does not clear the fee gate.
+are long-only and drawn on 1h or daily; exit-only patterns never open a
+short or a new long; 15m only confirms a close. A 1R measured move does not
+clear the fee gate.
 Skip it.
 
 Environment variables can make risk, the kill switch, or the R:R floor

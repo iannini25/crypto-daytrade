@@ -68,13 +68,15 @@
 
 1. **Pré-condições:** 10:00–12:30 BRT · sem bloqueio do Notícias (evitar 15 min antes/depois de dado macro) · **nenhum loss hoje** · <3 trades no dia · sem posição aberta.
 2. **Filtro D (só filtro):** HH/HL + SMA100 ok · sem quebra de LTA no D · sem padrão SÓ SAÍDA ativo no D/1h do ativo · D e 15m sem conflito. Falhou um → **FLAT**.
-3. **Padrão ATIVO desenhado no TF certo:** continuação no 15m/1h; reversão (fundo duplo/OCOI) só no D/1h. Critérios do Clear: ≥2 topos + ≥2 fundos (triângulo), mastro (bandeira), eixo/neckline (W/OCOI). Não desenhar padrão em cima de 1 pavio anômalo (Deriv p.7).
+3. **Padrão ATIVO desenhado no 1h ou no diário.** O 15m só serve para o close de entrada, não para desenhar o padrão nem para o stop. Critérios do Clear: ≥2 topos + ≥2 fundos (triângulo), mastro (bandeira), eixo/neckline (W/OCOI). Não desenhar padrão em cima de 1 pavio anômalo (Deriv p.7).
 4. **Gatilho:** candle 15m **FECHADO** além do nível + volume relativo do par Bybit acima da média do mesmo horário. Pavio ≠ gatilho. O 15m não redesenha a tese.
 5. **Stop candidato = estrutura do padrão no 1h/D** (ombro, 2º fundo, HL, base da bandeira/alça). Escolhido **antes** de calcular o risco. **Anotar lado a lado: (a) stop 1h/D % · (b) swing 15m % (registro) · (c) teto 3×ATR D %.** Nunca o "meio do padrão". O 15m só marca o close de entrada.
 6. **GATE do stop (só sobre (a) 1h/D):** < 3,0% → **não candidato** · 3,00–3,02% → ok · acima de 3,02% até 9,66% → **EXCEÇÃO** (justificativa no journal + Risco confere) · > 9,66% **ou** > 3×ATR D → **NÃO**. **Não apertar para caber.** Swing 15m não decide.
 7. **GATE do alvo:** alvo = menor entre altura projetada e próxima resistência; precisa de **alvo ≥ 2×stop + 0,90%** (≥ **6,9%** no piso). Não passou → FORA.
 8. **Fluxo:** Rastreador (fatos) → Caçador → Notícias/Baleias se relevante → **Risco** (único NÃO) → Chefe → journal paper (ledger só Chefe/designado). **Nunca ordem real.**
 9. **Pós-trade:** 1 loss = dia encerrado. Registrar tudo no log (inclusive vetados, em `barrados.csv` da Estatística).
+10. **Swing (paper):** a posição pode ficar aberta de um dia para o outro, de 1 a 5 dias. A entrada continua só na janela 10:00–12:30. O stop vale 24h (no paper, o ciclo confere o candle mesmo fora da janela; gap abaixo do stop executa na abertura).
+11. **Evento:** antes do CPI de 14/10 às 09:30 BRT, zerar até 15 minutos antes, ou só segurar se estiver com pelo menos +1R e o stop no zero a zero. O limite segue 1 posição.
 
 ---
 
@@ -85,7 +87,7 @@
 | # | Hipótese | Como roda | Sucesso | Falha | Mede |
 |---|---|---|---|---|---|
 | **E1 — GATE: quantos dias com setup 3,0–9,66% (1h/D)** | Em **quantos dias** (07, 08 e 09/10) aparece **pelo menos um** setup ATIVO com stop na estrutura **1h/D** entre 3,0–9,66%, ≤ teto 3×ATR D, altura ≥6,9% e ≥2×stop+0,90%, close 15m na janela. **0/3 = "sem evento"** | Por candidato: `(a) stop 1h/D %` (conta) · `(b) swing 15m %` (registro) · `(c) teto 3×ATR D %` · stop "meio" Deriv (sombra) · risco % conta · altura · passa? → `barrados.csv` + `dia · setup_na_janela (s/n)` | 3 dias com X/3; 0 decisões por (b)/(c); 0 stops apertados; 0 entradas fora do GATE; exceção >3,02% com justificativa + Risco | Dia sem registro; decisão pelo swing 15m ou pelo ATR; stop movido. **Leitura:** 0/3 **não estima frequência** (ver nota) | Estatística (Risco confere) |
-| **E2 — Continuação com mastro/range: bandeira ↑ (mastro ≥1,5%) + retângulo ↑ breakout** | Só mastro/range grande paga o GATE; os pequenos viram veto | Logar toda bandeira com mastro ≥1,5% e todo retângulo com altura ≥1% (15m/1h); paper só os que passam no GATE; medir hit alvo × stop até 12:30 e throwback em 4 candles | Expectativa líquida > 0 com ≥10 setups aprovados | ≤0, ou <10 setups em 10 sessões → rebaixar para FORA na v2 (registrar % vetado por altura) | Estatística |
+| **E2 — Continuação com mastro/range: bandeira ↑ (mastro ≥1,5%) + retângulo ↑ breakout** | Só mastro/range grande paga o GATE; os pequenos viram veto | Logar toda bandeira com mastro ≥1,5% e todo retângulo com altura ≥1% no **1h/D** (15m só o close); paper só os que passam no GATE; medir hit alvo × stop até 12:30 e throwback em 4 candles | Expectativa líquida > 0 com ≥10 setups aprovados | ≤0, ou <10 setups em 10 sessões → rebaixar para FORA na v2 (registrar % vetado por altura) | Estatística |
 | **E3 — Veto bearish "SÓ SAÍDA"** | Os vetos (OCO, topo duplo, triângulo desc., cunha asc., bandeira/flâmula ↓, topo arredondado) protegem | Às 09:32 e 10:00, marcar bearish ativo no D/1h por ativo; quando houver veto com gatilho long, registrar R líquido-sombra até 12:30 | Com N ≥10 vetos com gatilho: soma do R-sombra ≤ 0 → veto fica | Long tomado com bearish ativo, ou veto sem registro; soma > 0 e média ≥ +0,5R → revisar veto (critério do 19) | Estatística |
 | **E4 — Pavio × close 15m + volume** | Close + vol reduz falsos rompimentos e melhora a expectativa (Deriv entra no pavio) | Em todo rompimento de triângulo asc. / cunha ↓ / retângulo ↑ / neckline (altura ≥1%): entrada-sombra (a) pavio vs (b) close 15m + vol; falso = close de volta dentro em ≤4 candles; registrar % do caminho até o ápice | Com N ≥15: close mantido salvo se pavio tiver falso ≤ close **e** R líquido maior | Entrada paper por pavio antes da decisão | Estatística |
 | **E5 — Reversões D/1h (fundo duplo / OCOI)** | Só confirmadas e dentro do GATE têm edge; alvo-2 do Deriv (início do declínio) pode melhorar R:R | Para cada W/OCOI confirmado (close 15m acima do eixo/neckline): o que vem primeiro — stop estrutural 1h/D, alvo 1 (altura), alvo 2 (sombra) — até 12:30 e +24h; % vetado pelo GATE | N ≥10: alvo-2 só vira parcial se a expectativa líquida com alvo 2 > alvo 1; expectativa líquida > 0 com ≥5 setups aprovados | Usar alvo 2 para justificar R:R antes da validação; 0–4 setups → manter só como mapa de contexto | Estatística |
@@ -97,9 +99,9 @@
 
 ## 5. O que muda na v2
 
-1. **Dados do paper (E1–E5 / `barrados.csv`):** promover/rebaixar status pela expectativa líquida; recalibrar a altura mínima com a distribuição real de stops estruturais 15m × teto 3×ATR D.
+1. **Dados do paper (E1–E5 / `barrados.csv`):** promover/rebaixar status pela expectativa líquida; recalibrar a altura mínima com a distribuição real de stops estruturais **1h/D** × teto 3×ATR D.
 2. **Regra de custo do `risco.py` (stop ≥3,0%):** se o Bernardo mudar o `config.py` depois do bootcamp, refazer o GATE (a mesa não muda isso).
-3. **Candles (Clear Cap.13+):** entram **só como gatilho** dentro de um padrão ATIVO (nunca setup isolado; ver 12 §1).
+3. **Candles (Clear Cap.13+):** entram **só como confirmação do close** de um padrão ATIVO já desenhado no 1h/D (nunca gatilho sozinho, nunca setup isolado; ver 12 §1).
 4. **Deriv E2 "quebra > 1 dia"** para níveis do D: testar na v2.
 5. **Capital/ordem mínima:** se a conta ou a ordem mínima mudarem, a Estatística recalcula 3,02% / 9,66%.
 6. **Medidas que faltam ("sem fonte" hoje):** stats de triângulo descendente, retângulo e bandeira de baixa; range mediano 1h na Bybit para dimensionar padrões do 1h.

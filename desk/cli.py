@@ -345,7 +345,7 @@ def render_scan(payload: dict) -> str:
     window = "OPEN" if payload["liquidity_window_open"] else "CLOSED"
     lines = [
         f"scan {payload['as_of_sao_paulo']}  America/Sao_Paulo  liquidity window {window}",
-        "Dry run. Daily HH/HL and SMA100, 1h/daily stop, 15m close for timing. No orders.",
+        "Dry run. Pattern on 1h or daily, 15m close only. No orders.",
     ]
     for row in payload["rows"]:
         rr = "n/a" if row["rr_after_fees"] is None else _px(row["rr_after_fees"])

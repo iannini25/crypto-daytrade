@@ -20,7 +20,7 @@ MIN_HEIGHT = Decimal("0.01")
 # Catalog from docs/playbook-padroes-v1.md. Active names may become a paper
 # long. Exit-only names never open a short and never open a new long.
 # Out-of-v1 names are a log, not an entry. Reversals are active only on 1h
-# or daily; a 15m bar only confirms the close.
+# 1h or daily. A 15m bar only confirms the close; it does not draw the pattern.
 ACTIVE_LONG = frozenset(
     {
         "ascending_triangle",
@@ -58,17 +58,14 @@ def pattern_role(name: str | None) -> str:
 
 
 def long_entry_allowed(name: str | None, timeframe: str) -> bool:
-    """True when this name may open a paper long on that timeframe.
+    """True when this name may open a paper long drawn on that timeframe.
 
-    Continuations may be timed by a 15m close. Inverse head and shoulders
-    and double bottom are active only when the pattern is on 1h or daily.
-    Exit-only and out-of-v1 names never open a long.
+    Every active pattern is drawn on 1h or daily. The 15m close only confirms
+    the entry. Exit-only and out-of-v1 names never open a long.
     """
     if name not in ACTIVE_LONG:
         return False
-    if name in REVERSAL_LONG:
-        return timeframe in {"1h", "D"}
-    return timeframe in {"15m", "1h", "D"}
+    return timeframe in {"1h", "D"}
 
 
 @dataclass(frozen=True)
@@ -322,6 +319,17 @@ _DETECTORS = (
     match_falling_wedge,
     match_rectangle,
 )
+
+
+def detect(candles: list[Candle]) -> PatternMatch | None:
+    """Pattern drawn on these bars. This does not treat the last bar as a breakout."""
+    if len(candles) < 15:
+        return None
+    for detector in _DETECTORS:
+        found = detector(candles)
+        if found is not None:
+            return found
+    return None
 
 
 def classify(candles: list[Candle]) -> PatternMatch | None:

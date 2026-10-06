@@ -14,13 +14,16 @@ follows it. Where the two differ, the Portuguese file wins.
 
 1. **Daily structure is higher highs and higher lows, and the daily close is
    above the 100-day average.** If either filter fails, there is no long.
-2. **The stop anchors on a 1h or daily swing low.** A 15m swing is not a
-   stop. The 15m candle only times the entry: the close has to clear the
-   level. A wick is not an entry.
+2. **The pattern is drawn on the 1h or the daily chart.** The stop is that
+   structure (last higher low, flag base, right shoulder, second bottom).
+   A 15m swing is not a stop and a 15m shape is not the pattern. The 15m
+   candle only confirms the entry: the close has to clear the level. A wick
+   is not an entry.
 3. **Session.** New entries are for 10:00–12:30 America/Sao_Paulo. Outside
-   that window the picture is watch-only. Holding overnight is allowed.
-   The intended swing is 1 to 5 days, on the paper book. Past five days,
-   the position is overdue and should be reviewed by a person.
+   that window the picture is watch-only. A paper position may stay open
+   overnight, for 1 to 5 days. The stop is live the whole time: every
+   candle is checked, and a gap through the stop fills at the open. Past
+   five days, the position is overdue and should be reviewed by a person.
 4. **Round-trip cost is 0.30%.** That is VIP0 spot fees of 0.10% in and
    0.10% out (0.20%) plus 0.10% slippage. The gate uses
 
@@ -67,6 +70,12 @@ payroll, or PCE. Put those timestamps in the JSON file named by
 Friday University of Michigan window: **10:45–11:15 America/Sao_Paulo**,
 every Friday. Brazil does not observe daylight-saving time.
 
+CPI on **14 October 2026 at 09:30 America/Sao_Paulo** is on the desk
+calendar even when `DESK_EVENTS_PATH` is empty. By 15 minutes before that
+print (09:15), an open long is closed on the paper book unless it is at
+least +1R with the stop already at entry plus the 0.30% cost (zero after
+costs). One position still applies.
+
 Fifteen minutes before a lock (and during it, if the position is still
 open):
 
@@ -81,23 +90,23 @@ open):
 ## Patterns
 
 Names and status come from
-[playbook-padroes-v1.md](playbook-padroes-v1.md). The stop is the 1h or
-daily structure of the pattern (last higher low, flag base, right shoulder,
-second bottom). A 15m swing is a record, not that stop. The 15m candle only
-confirms a **close** beyond the level. A measured move that does not clear
-net R:R of 2, or a target under 6.9%, is a skip. Do not slide the stop and
-do not invent a farther target to pass the gate.
+[playbook-padroes-v1.md](playbook-padroes-v1.md). Every active pattern is
+drawn on **1h or daily**. A 15m swing is a record, not the stop, and a 15m
+shape is not the setup. The 15m candle only confirms a **close** beyond the
+level. A measured move that does not clear net R:R of 2, or a target under
+6.9%, is a skip. Do not slide the stop and do not invent a farther target
+to pass the gate.
 
 ### Active longs (paper candidates only)
 
-| Pattern | Where it is drawn | Timing |
+| Pattern | Where it is drawn | 15m close |
 | --- | --- | --- |
-| Ascending triangle | continuation, priority 1 | 15m close through the flat high |
-| Bull flag | continuation, priority 2; needs a pole | 15m close through the flag high |
-| Rectangle | upside breakout only; buying the base is out | 15m close through resistance |
-| Falling wedge | pullback inside daily HH/HL, low priority | 15m close through the upper boundary |
-| Inverse head and shoulders | **daily or 1h only**, never a 15m pattern | 15m close above the neckline |
-| Double bottom | **daily or 1h only**, never a 15m pattern | 15m close through the neckline (the eixo) |
+| Ascending triangle | 1h or daily, priority 1 | through the flat high |
+| Bull flag | 1h or daily, priority 2; needs a pole | through the flag high |
+| Rectangle | 1h or daily, upside breakout only; buying the base is out | through resistance |
+| Falling wedge | 1h, pullback inside daily HH/HL, low priority | through the upper boundary |
+| Inverse head and shoulders | daily or 1h, never a 15m pattern | above the neckline |
+| Double bottom | daily or 1h, never a 15m pattern | through the neckline (the eixo) |
 
 A daily chart that is not HH/HL, or a close under SMA100, turns every name
 above into a flat. A conflict between the daily read and the 15m read is a
@@ -121,13 +130,13 @@ bottom is not a setup.
 `python -m desk scan` can print `ignore`, `watch`, `exit_only`, or
 `paper_candidate`.
 
-`paper_candidate` means an **active** long, the daily filters, the 1h or
-daily stop inside 3.0–9.66% and at or under 3×ATR(D), the target floor, the
-15m close, the Sao Paulo window, the event locks, the loss lock, the
-three-trade cap, and the cost gate all passed on a coarse heuristic. It is
-a note for a person. The process does not size a live order and does not
-call the exchange. `exit_only` means the label must not open a short and
-must not open a new long.
+`paper_candidate` means an **active** long drawn on 1h or daily, the daily
+filters, the 1h or daily stop inside 3.0–9.66% and at or under 3×ATR(D),
+the target floor, a 15m close through the level, the Sao Paulo window, the
+event locks, the loss lock, the three-trade cap, and the cost gate all
+passed on a coarse heuristic. It is a note for a person. The process does
+not size a live order and does not call the exchange. `exit_only` means the
+label must not open a short and must not open a new long.
 
 Heuristics miss patterns and mislabel them. If the chart disagrees with the
 label, the chart wins, and the trade is still skipped when the gate fails.

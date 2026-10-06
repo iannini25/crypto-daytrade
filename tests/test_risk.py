@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 
 from desk.config import ConfigError, load_config
-from desk.events import MacroEvent
+from desk.events import MacroEvent, entry_lock, pre_event_action
 from desk.risk import AccountSnapshot, OrderPlan, evaluate
 
 
@@ -218,6 +218,48 @@ def test_mid_pattern_stop_and_15m_reversal_are_rejected():
     cup = evaluate(_plan(pattern="cup", pattern_timeframe="D"), _account())
     assert not cup.allowed
     assert any("outside playbook" in reason for reason in cup.reasons)
+
+
+def test_a_15m_pattern_is_not_a_long_and_cpi_14_oct_is_on_the_calendar():
+    micro = evaluate(_plan(pattern="bull_flag", pattern_timeframe="15m"), _account())
+    assert not micro.allowed
+    assert any("1h or daily" in reason for reason in micro.reasons)
+
+    drawn = evaluate(
+        _plan(pattern="bull_flag", pattern_timeframe="1h", pattern_low=Decimal("96.5")),
+        _account(),
+    )
+    assert drawn.allowed
+
+    # 14 Oct 2026 09:15 BRT is 12:15 UTC, 15 minutes before the built-in CPI.
+    at_pad = datetime(2026, 10, 14, 12, 15, tzinfo=timezone.utc)
+    assert entry_lock(at_pad, ())
+    assert "CPI" in entry_lock(at_pad, ())
+    closed = pre_event_action(
+        entry=Decimal("100"),
+        stop=Decimal("96.5"),
+        mark=Decimal("100"),
+        now=at_pad,
+        events=(),
+    )
+    assert closed.kind == "close"
+    held = pre_event_action(
+        entry=Decimal("100"),
+        stop=Decimal("96.5"),
+        mark=Decimal("104.1"),
+        now=at_pad,
+        events=(),
+    )
+    assert held.kind == "raise_stop"
+    assert held.new_stop == Decimal("100.3")
+    before = pre_event_action(
+        entry=Decimal("100"),
+        stop=Decimal("96.5"),
+        mark=Decimal("100"),
+        now=datetime(2026, 10, 14, 12, 14, tzinfo=timezone.utc),
+        events=(),
+    )
+    assert before.kind == "none"
 
 
 def test_config_refuses_looser_rules():
