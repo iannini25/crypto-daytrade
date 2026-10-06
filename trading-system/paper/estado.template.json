@@ -1,0 +1,18 @@
+{
+  "aviso": "TEMPLATE VAZIO. Não é a conta ao vivo. O run_signal.py cria paper/estado.json na primeira execução. Este arquivo só documenta o formato.",
+  "criado_em_brt": null,
+  "capital_inicial_brl": 100.0,
+  "usdtbrl_inicial": null,
+  "capital_inicial_usdt": null,
+  "caixa_usdt": null,
+  "posicoes": {},
+  "kill_switch": {
+    "ativo": false,
+    "motivo": null,
+    "em_brt": null
+  },
+  "ref_dia": null,
+  "ref_semana": null,
+  "seq_trade": 0,
+  "ultima_execucao_brt": null
+}
