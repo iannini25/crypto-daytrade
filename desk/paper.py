@@ -8,7 +8,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -17,6 +17,7 @@ from desk.events import EventAction, MacroEvent, pre_event_action
 from desk.fees import VIP0_SIDE_FEE
 from desk.risk import AccountSnapshot, GateDecision, OrderPlan, evaluate
 from desk.session import sao_paulo_now
+from desk.stops import StopChange, append_stop_change
 
 LEDGER_WRITER_ENV = "LEDGER_WRITER"
 
@@ -53,6 +54,13 @@ def _dec_str(value: Decimal) -> str:
     return format(value, "f")
 
 
+def _opt_dec(payload: dict, key: str) -> Decimal | None:
+    raw = payload.get(key)
+    if raw is None or raw == "":
+        return None
+    return _D(raw)
+
+
 @dataclass
 class Position:
     symbol: str
@@ -62,8 +70,24 @@ class Position:
     target: Decimal
     entry_fee: Decimal
     opened_at: str
+    stop_hist: list[StopChange] = field(default_factory=list)
+    ultimo_check_utc: str | None = None
+    figura_min: Decimal | None = None
+    figura_desc: str = ""
+    figura_armed_at_utc: str | None = None
+    stop_initial: Decimal | None = None
 
-    def to_json(self) -> dict[str, str]:
+    def record_stop(self, old: Decimal, new: Decimal, at: datetime, reason: str) -> StopChange:
+        """Append {old, new, at_utc, reason} and set the live stop. Never lowers."""
+        old = _D(old)
+        new = _D(new)
+        if new < old:
+            raise PaperError("a stop raise never lowers")
+        change = append_stop_change(self.stop_hist, old, new, at, reason)
+        self.stop = new
+        return change
+
+    def to_json(self) -> dict:
         return {
             "symbol": self.symbol,
             "side": "Buy",
@@ -73,12 +97,19 @@ class Position:
             "target": _dec_str(self.target),
             "entry_fee": _dec_str(self.entry_fee),
             "opened_at": self.opened_at,
+            "stop_initial": None if self.stop_initial is None else _dec_str(self.stop_initial),
+            "ultimo_check_utc": self.ultimo_check_utc,
+            "stop_hist": [change.to_json() for change in self.stop_hist],
+            "figura_min": None if self.figura_min is None else _dec_str(self.figura_min),
+            "figura_desc": self.figura_desc,
+            "figura_armed_at_utc": self.figura_armed_at_utc,
         }
 
     @classmethod
-    def from_json(cls, payload: dict[str, str]) -> Position:
+    def from_json(cls, payload: dict) -> Position:
         if payload.get("side", "Buy") != "Buy":
             raise PaperError("ledger contains a non-long position; this desk is long-only")
+        hist = [StopChange.from_json(item) for item in payload.get("stop_hist") or []]
         return cls(
             symbol=payload["symbol"],
             qty=_D(payload["qty"]),
@@ -87,6 +118,12 @@ class Position:
             target=_D(payload["target"]),
             entry_fee=_D(payload["entry_fee"]),
             opened_at=payload["opened_at"],
+            stop_hist=hist,
+            ultimo_check_utc=payload.get("ultimo_check_utc"),
+            figura_min=_opt_dec(payload, "figura_min"),
+            figura_desc=str(payload.get("figura_desc") or ""),
+            figura_armed_at_utc=payload.get("figura_armed_at_utc"),
+            stop_initial=_opt_dec(payload, "stop_initial"),
         )
 
 
@@ -101,8 +138,12 @@ class ClosedTrade:
     pnl: Decimal
     opened_at: str
     closed_at: str
+    reason: str = ""
+    stop_used: Decimal | None = None
+    close_1h: Decimal | None = None
+    bid_at_detection: Decimal | None = None
 
-    def to_json(self) -> dict[str, str]:
+    def to_json(self) -> dict:
         return {
             "symbol": self.symbol,
             "qty": _dec_str(self.qty),
@@ -113,10 +154,14 @@ class ClosedTrade:
             "pnl": _dec_str(self.pnl),
             "opened_at": self.opened_at,
             "closed_at": self.closed_at,
+            "reason": self.reason,
+            "stop_used": None if self.stop_used is None else _dec_str(self.stop_used),
+            "close_1h": None if self.close_1h is None else _dec_str(self.close_1h),
+            "bid_at_detection": None if self.bid_at_detection is None else _dec_str(self.bid_at_detection),
         }
 
     @classmethod
-    def from_json(cls, payload: dict[str, str]) -> ClosedTrade:
+    def from_json(cls, payload: dict) -> ClosedTrade:
         return cls(
             symbol=payload["symbol"],
             qty=_D(payload["qty"]),
@@ -127,6 +172,10 @@ class ClosedTrade:
             pnl=_D(payload["pnl"]),
             opened_at=payload["opened_at"],
             closed_at=payload["closed_at"],
+            reason=str(payload.get("reason") or ""),
+            stop_used=_opt_dec(payload, "stop_used"),
+            close_1h=_opt_dec(payload, "close_1h"),
+            bid_at_detection=_opt_dec(payload, "bid_at_detection"),
         )
 
 
@@ -334,6 +383,7 @@ def _apply_open(ledger: Ledger, plan: OrderPlan, decision: GateDecision, now: da
         raise PaperError("insufficient paper cash")
     fee = qty * plan.entry * ledger.fee_rate
     ledger.cash -= debit
+    opened = _now_iso(now)
     ledger.position = Position(
         symbol=plan.symbol,
         qty=qty,
@@ -341,7 +391,9 @@ def _apply_open(ledger: Ledger, plan: OrderPlan, decision: GateDecision, now: da
         stop=plan.stop,
         target=plan.target,
         entry_fee=fee,
-        opened_at=_now_iso(now),
+        opened_at=opened,
+        ultimo_check_utc=opened,
+        stop_initial=plan.stop,
     )
 
 
@@ -352,6 +404,10 @@ def close_long(
     *,
     writer: bool | None = None,
     path: str | Path | None = None,
+    reason: str = "",
+    stop_used: Decimal | None = None,
+    close_1h: Decimal | None = None,
+    bid_at_detection: Decimal | None = None,
 ) -> PaperAction:
     """Simulate a spot sell. Dry-run unless LEDGER_WRITER=1. No exchange call."""
     if ledger.position is None:
@@ -359,7 +415,15 @@ def close_long(
     exit_price = _D(exit_price)
     if exit_price <= 0:
         raise PaperError("exit price must be positive")
-    trade = _trade_at(ledger, exit_price, now)
+    trade = _trade_at(
+        ledger,
+        exit_price,
+        now,
+        reason=reason,
+        stop_used=stop_used,
+        close_1h=close_1h,
+        bid_at_detection=bid_at_detection,
+    )
     if not ledger_writes_enabled(writer):
         return PaperAction(decision=None, applied=False, dry_run=True, trade=trade)
     _apply_close(ledger, trade)
@@ -368,7 +432,16 @@ def close_long(
     return PaperAction(decision=None, applied=True, dry_run=False, trade=trade)
 
 
-def _trade_at(ledger: Ledger, exit_price: Decimal, now: datetime | None) -> ClosedTrade:
+def _trade_at(
+    ledger: Ledger,
+    exit_price: Decimal,
+    now: datetime | None,
+    *,
+    reason: str = "",
+    stop_used: Decimal | None = None,
+    close_1h: Decimal | None = None,
+    bid_at_detection: Decimal | None = None,
+) -> ClosedTrade:
     assert ledger.position is not None
     position = ledger.position
     exit_fee = position.qty * exit_price * ledger.fee_rate
@@ -384,6 +457,10 @@ def _trade_at(ledger: Ledger, exit_price: Decimal, now: datetime | None) -> Clos
         pnl=pnl,
         opened_at=position.opened_at,
         closed_at=_now_iso(now),
+        reason=reason,
+        stop_used=None if stop_used is None else _D(stop_used),
+        close_1h=None if close_1h is None else _D(close_1h),
+        bid_at_detection=None if bid_at_detection is None else _D(bid_at_detection),
     )
 
 
@@ -410,9 +487,12 @@ def manage_into_event(
         action = EventAction("none", "flat")
         return PaperAction(decision=None, applied=False, dry_run=not ledger_writes_enabled(writer), event=action)
     position = ledger.position
+    risk_stop = position.stop_initial if position.stop_initial is not None else position.stop
+    if risk_stop >= position.entry:
+        risk_stop = position.stop
     action = pre_event_action(
         entry=position.entry,
-        stop=position.stop,
+        stop=risk_stop,
         mark=mark,
         now=now,
         events=events,
@@ -434,7 +514,9 @@ def manage_into_event(
             event=action,
         )
     if action.kind == "raise_stop" and action.new_stop is not None:
-        position.stop = action.new_stop
+        if action.new_stop > position.stop:
+            position.ultimo_check_utc = _now_iso(now)
+            position.record_stop(position.stop, action.new_stop, now, action.reason)
         if path is not None:
             save_ledger(ledger, path, writer=True)
         return PaperAction(decision=None, applied=True, dry_run=False, event=action)

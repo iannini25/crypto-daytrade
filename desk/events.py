@@ -2,15 +2,20 @@
 
 New entries are blocked:
 
-- from 15 minutes before until 15 minutes after CPI, FOMC, payroll, or PCE
+- from 15 minutes before until 15 minutes after CPI, FOMC, payroll, PCE, or GDP
 - on Fridays 10:45–11:15 America/Sao_Paulo (University of Michigan window)
 - around the built-in CPI on 14 Oct 2026 at 09:30 America/Sao_Paulo
 
-Fifteen minutes before a lock, an open long is handled on the paper ledger
-only when LEDGER_WRITER=1:
+An open long on a blocking-event day (CPI, payroll, PCE, GDP, FOMC) is
+handled by the scheduled paper check in `desk.protection`: 06:05
+America/Sao_Paulo, then 09:10, 09:40, and every 30 minutes after that.
+Under +1R the long is closed. At +1R or better the stop is raised to
+entry×1.003 and never lowered. A quote older than 120 seconds, or no quote,
+writes nothing.
 
-- unrealized net R under +1: close
-- unrealized net R at least +1: move the stop to entry plus the 0.30% cost and hold
+`pre_event_action` still recommends the same close-or-raise inside the lock
+window, so a missed scheduled check is not silent. It does not fire for the
+whole event day. Ledger changes require LEDGER_WRITER=1.
 """
 
 from __future__ import annotations
@@ -24,7 +29,8 @@ from pathlib import Path
 from desk.fees import COST_PERCENT, ROUND_TRIP_COST
 from desk.session import SAO_PAULO, sao_paulo_now
 
-MACRO_NAMES = frozenset({"CPI", "FOMC", "payroll", "PCE"})
+MACRO_NAMES = frozenset({"CPI", "FOMC", "payroll", "PCE", "GDP"})
+BLOCKING_EVENTS = frozenset({"CPI", "payroll", "PCE", "GDP", "FOMC"})
 LOCK_PAD = timedelta(minutes=15)
 UOM_START = time(10, 45)
 UOM_END = time(11, 15)

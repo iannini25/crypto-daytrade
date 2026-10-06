@@ -208,9 +208,12 @@ def _paper_status(config, as_json: bool, init: bool, ledger: str | None) -> int:
         payload["hold"] = hold_horizon(opened, datetime.now(timezone.utc))
         events = load_events(config.events_path)
         if mark is not None:
+            risk_stop = book.position.stop_initial or book.position.stop
+            if risk_stop >= book.position.entry:
+                risk_stop = book.position.stop
             action = pre_event_action(
                 entry=book.position.entry,
-                stop=book.position.stop,
+                stop=risk_stop,
                 mark=mark,
                 now=datetime.now(timezone.utc),
                 events=events,

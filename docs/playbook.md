@@ -64,28 +64,48 @@ follows it. Where the two differ, the Portuguese file wins.
 ## Event locks
 
 No new entries from 15 minutes before until 15 minutes after CPI, FOMC,
-payroll, or PCE. Put those timestamps in the JSON file named by
-`DESK_EVENTS_PATH`. Names are `CPI`, `FOMC`, `payroll`, and `PCE`.
+payroll, PCE, or GDP. Put those timestamps in the JSON file named by
+`DESK_EVENTS_PATH`. Names are `CPI`, `FOMC`, `payroll`, `PCE`, and `GDP`.
 
 Friday University of Michigan window: **10:45–11:15 America/Sao_Paulo**,
 every Friday. Brazil does not observe daylight-saving time.
 
-CPI on **14 October 2026 at 09:30 America/Sao_Paulo** is on the desk
-calendar even when `DESK_EVENTS_PATH` is empty. By 15 minutes before that
-print (09:15), an open long is closed on the paper book unless it is at
-least +1R with the stop already at entry plus the 0.30% cost (zero after
-costs). One position still applies.
+CPI on **14 October 2026 at 09:30 America/Sao_Paulo** stays on the desk
+calendar even when `DESK_EVENTS_PATH` is empty.
 
-Fifteen minutes before a lock (and during it, if the position is still
-open):
+## Pre-event protection
 
-- if the open long is under **+1R** on the same net-R scale, close it on
-  the paper book
-- if it is at **+1R** or better, move the stop to **entry + 0.30%** (entry
-  plus the round-trip cost) and hold
+On a blocking-event day (CPI, payroll, PCE, GDP, FOMC) an open long is
+checked on the paper book at **06:05 America/Sao_Paulo**, then at **09:10**,
+**09:40**, and every 30 minutes after that. This schedule replaces waiting
+until 15 minutes before the print.
 
-`paper-status` prints that recommendation. It changes the ledger only when
-`LEDGER_WRITER=1`. Nothing is sent to Bybit.
+- marked result under **+1.00R** closes the paper long (`pre-<event>`)
+- **+1.00R** or better raises the stop to **entry × 1.003** and never lowers
+  it (`breakeven_+1R_pre_evento`). **0.99R** is not enough to raise
+- a Bybit bid older than **120 seconds**, or no bid, is an error and writes
+  nothing
+- every run with a quote prints the collection time in BRT and the age in
+  seconds
+
+`+1R` uses the stop the trade was opened with, on the same net scale as the
+gate: (gain% − 0.30) / (stop% + 0.30). Before any raise, candles are walked
+with the old stop up to now, `ultimo_check_utc` is stamped, and only then
+is `{old, new, at_utc, reason}` appended. A later walk uses the stop that
+was in force at each candle's open. A gap through the stop fills at
+min(open, stop), and the exit records `stop_usado`.
+
+`desk.events.pre_event_action` still recommends close or raise inside the
+±15 minute lock, so a missed scheduled check is not silent. It does not
+fire for the whole event day. `paper-status` prints that recommendation.
+The ledger changes only when `LEDGER_WRITER=1`. Nothing is sent to Bybit.
+
+A bearish figure armed on the open long exits on the first **closed** 1h
+candle whose close is under `figura_min`. The fill is min(that close, the
+live bid); both prices are stored. If the same 1h candle also trades
+through the stop, the stop wins.
+
+The team protocol is [protocolo.md](protocolo.md).
 
 ## Patterns
 

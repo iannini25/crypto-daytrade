@@ -25,7 +25,7 @@ into the Bybit website, and this repo will not type it for them.
 | Payoff | Net R:R = (target% − 0.30) / (stop% + 0.30) ≥ 2, i.e. target% ≥ 2×stop% + 0.90, with a **6.9%** target floor |
 | Stop | Structural 1h or daily stop in **3.0–9.66%** and at or under 3×ATR(D). 3.00–3.02% is the 1% zone; above 3.02% through 9.66% needs justification; above 9.66% is rejected. Do not tighten a stop into the middle of the pattern |
 | Day stop | One losing trade ends new entries for that Sao Paulo day. At most 3 trades. One position |
-| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE. Friday UoM lock 10:45–11:15 BRT. CPI on 14 Oct 2026 at 09:30 BRT is built in: by 09:15, close, or hold only if at least +1R with the stop at entry+costs |
+| Events | No new entries ±15 minutes around CPI, FOMC, payroll, PCE, GDP. Friday UoM lock 10:45–11:15 BRT. CPI on 14 Oct 2026 at 09:30 BRT stays on the calendar. On that kind of day an open long is checked at 06:05 BRT and at 09:10/09:40/…: under +1.00R it closes; at +1.00R the stop rises to entry×1.003 and never falls. A quote older than 120s writes nothing |
 | Kill | No new risk at or below 90% of starting equity |
 | Ledger | Read-only unless `LEDGER_WRITER=1`, and then an exclusive file lock |
 
@@ -35,7 +35,7 @@ catalog (Portuguese, v1) is
 are long-only and drawn on 1h or daily; exit-only patterns never open a
 short or a new long; 15m only confirms a close. A 1R measured move does not
 clear the fee gate.
-Skip it.
+Skip it. The desk protocol is [docs/protocolo.md](docs/protocolo.md).
 
 Environment variables can make risk, the kill switch, or the R:R floor
 **stricter**. They cannot loosen them. `DESK_CATEGORY` other than `spot` is
@@ -94,10 +94,11 @@ the monitors sends them.
 ## Layout
 
 ```
-desk/           config, public client, fees, risk gate, paper ledger, scanner
+desk/           config, public client, fees, risk gate, paper ledger, stops, figure exit, protection
 docs/playbook.md
 docs/playbook-padroes-v1.md
-tests/          fee math, R:R after fees, gates, public client
+docs/protocolo.md
+tests/          fee math, R:R after fees, gates, stops, figure exit, protection
 .github/workflows/tests.yml
 ```
 
@@ -107,3 +108,9 @@ tests/          fee math, R:R after fees, gates, public client
 risk gate allows it. They are not wired to a trading CLI and they do not
 call Bybit. `scan` does not open paper trades by itself; a
 `paper_candidate` line is a note, not a fill.
+
+`desk.stops` walks a stop that was in force at each candle. `desk.figura`
+exits on the first closed 1h candle under the armed figure, unless that
+same candle already hit the stop. `desk.protection.raise_stop_to_breakeven`
+and `protect_before_event` are the paper breakeven and event-day checks.
+All three write only when `LEDGER_WRITER=1`.
