@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+.env.local
+pusher/.cursor.json
+pusher/cursor.json
+*.log
