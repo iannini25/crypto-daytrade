@@ -36,7 +36,17 @@ the canvas. They are not copied from Habblaud's sprite pipeline.
 
 ## pixel-agents
 
-Interaction idea (an avatar per agent that moves with the work it is doing)
-comes from [pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents),
-also MIT, Copyright (c) 2026 Pablo De Lucca. No source files from that
-repository are included.
+The habit of one identifiable pixel character per agent, with a name above
+the head and a pose that matches the current task (walking, sitting at a
+desk, reading), follows
+[pixel-agents-hq/pixel-agents](https://github.com/pixel-agents-hq/pixel-agents).
+
+```
+MIT License
+
+Copyright (c) 2026 Pablo De Lucca
+```
+
+The full MIT text is the same grant as the Habblaud notice above. No source
+files or sprite sheets from that repository are included. Characters, walls,
+floors, doors, and furniture in Code Town are drawn in canvas.

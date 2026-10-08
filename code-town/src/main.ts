@@ -1,4 +1,4 @@
-import { AGENTS } from './agents';
+import { AGENTS, nameTag } from './agents';
 import { Camera } from './camera';
 import { nextDemo, seedDemo, startLive, supabaseConfigured, type Mode } from './events';
 import { tileToWorld, worldToTile } from './iso';
@@ -16,7 +16,7 @@ const statusEl = document.querySelector<HTMLElement>('#conn')!;
 
 const cam = new Camera();
 const blocked = buildBlocked();
-const avatars = createAvatars(blocked, MAP_W);
+const avatars = createAvatars(blocked, MAP_W, MAP_H);
 let mode: Mode = 'demo';
 let hoverRoom: string | null = null;
 let selected: Avatar | null = null;
@@ -46,7 +46,7 @@ function resize(): void {
   cam.setView(window.innerWidth, window.innerHeight, dpr);
   worldBounds();
   const w = tileToWorld(MAP_W / 2, MAP_H / 2 - 1);
-  if (!resizedOnce) cam.focus(w.x, w.y, 0.95);
+  if (!resizedOnce) cam.focus(w.x, w.y, 0.58);
   cam.clamp();
 }
 let resizedOnce = false;
@@ -85,7 +85,7 @@ function renderFeed(): void {
   for (const av of avatars) {
     const latest = av.events.slice(0, 3);
     if (!latest.length) continue;
-    rows.push(`<section><h3>${escapeHtml(av.agent.name)} <span>${escapeHtml(av.agent.role)}</span></h3>`);
+    rows.push(`<section><h3>${escapeHtml(nameTag(av.agent))} <span>${escapeHtml(av.agent.role)}</span></h3>`);
     for (const ev of latest) {
       const bad = ev.status !== 'ok' ? ' bad' : '';
       rows.push(
@@ -107,8 +107,8 @@ function renderCard(): void {
   cardEl.hidden = false;
   cardEl.innerHTML = `
     <button type="button" id="close-card">fechar</button>
-    <h2>${escapeHtml(av.agent.name)}</h2>
-    <p class="role">${escapeHtml(av.agent.role)}</p>
+    <h2>${escapeHtml(nameTag(av.agent))}</h2>
+    <p class="role">${escapeHtml(av.agent.role)}${av.agent.helper ? ' · ajudante' : ''}</p>
     <p>Sala: <b>${escapeHtml(av.room)}</b> · pose ${escapeHtml(av.pose)}${av.error ? ' · <b class="bad">erro</b>' : ''}</p>
     <p class="id">${escapeHtml(av.agent.id)}</p>
     <h3>Últimos eventos</h3>
@@ -130,6 +130,7 @@ function escapeHtml(s: string): string {
 function onEvent(ev: Parameters<typeof applyEvent>[1]): void {
   applyEvent(avatars, ev, blocked, MAP_W, MAP_H);
   renderFeed();
+  if (selected && !avatars.includes(selected)) selected = null;
   if (selected && (selected.agent.id === ev.agent_id || selected.agent.name === ev.agent_name)) renderCard();
 }
 

@@ -13,15 +13,22 @@ A* walker are adapted from [Habblaud](https://github.com/marmottajr/habblaud)
 
 ## Rooms
 
+A hallway joins the rooms. Each door has a name plate.
+
 | Room | Who ends up there |
 | --- | --- |
-| Trading Floor | `scan`, charts, setups, whale flow, the boss |
-| News Room | `noticias` / news |
-| Risk / Compliance | `risco`, `veto` |
-| Research Library | `estudo` and the stats agent |
-| Whiteboard | `macro` (world clocks on the wall) and the router |
-| Coffee | last event older than 30 minutes, or an idle kind — sleeping |
-| Other Business | Leads, Whatsapp, IGORMARCHETTI |
+| Sala de Gráficos | `scan`, charts, setups (Rastreador, Caçador) |
+| Redação | `noticias`, `macro`, Radar X |
+| On-chain / Baleias | whale and on-chain flow |
+| Sala de Risco | `risco`, `veto` (red light when the veto fails) |
+| Mesa de conversa | group chat / `conversa` / router |
+| Sala de código | `codigo`, automation, scripts |
+| Apresentação | `apresentacao`, metrics (Chefe, Estatística) |
+| Biblioteca | `estudo` (Estudante) |
+| Copa | idle longer than 30 minutes |
+| Outros | Leads, Whatsapp, IGORMARCHETTI |
+
+Every avatar has a name balloon. Helpers and unknown sources render smaller, with a badge, as `Nome (Chefe)`. A name that is not in `agents.json` spawns a temporary helper that walks off when it goes idle.
 
 A failed/error status draws a red `!` bubble. Click an avatar for its card.
 The right-hand feed lists the latest events with timestamps in `America/Sao_Paulo`.
