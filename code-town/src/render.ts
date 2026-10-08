@@ -133,7 +133,148 @@ function poster(ctx: CanvasRenderingContext2D, x: number, y: number, tone: strin
   ctx.fillRect(x + 2, y + 2, 14, 8);
 }
 
-function drawRoomFurniture(ctx: CanvasRenderingContext2D, room: RoomDef, veto: boolean): void {
+
+function rand(seed: number): number {
+  const v = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+/** Wall screen with an animated candlestick chart. Procedural: it decorates, it does not quote prices. */
+function marketScreen(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, label: string, seed: number, t: number): void {
+  ctx.fillStyle = '#10151d';
+  roundRect(ctx, x - 3, y - 3, w + 6, h + 6, 4);
+  ctx.fill();
+  ctx.fillStyle = '#0b1420';
+  roundRect(ctx, x, y, w, h, 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120,160,200,0.12)';
+  ctx.lineWidth = 1;
+  for (let g = 1; g < 4; g++) {
+    ctx.beginPath();
+    ctx.moveTo(x, y + (h * g) / 4);
+    ctx.lineTo(x + w, y + (h * g) / 4);
+    ctx.stroke();
+  }
+  const n = Math.max(8, Math.floor(w / 7));
+  const shift = Math.floor(t / 1.6);
+  const closes: number[] = [];
+  let p = 0;
+  for (let i = 0; i < n + shift; i++) {
+    p += (rand(seed + i) - 0.48) * 1.6;
+    if (i >= shift) closes.push(p);
+  }
+  const lo = Math.min(...closes) - 1.2;
+  const hi = Math.max(...closes) + 1.2;
+  const top = y + 12;
+  const span = h - 16;
+  const yOf = (v: number) => top + span - ((v - lo) / (hi - lo)) * span;
+  const cw = w / n;
+  for (let i = 1; i < closes.length; i++) {
+    const o = closes[i - 1];
+    const c = closes[i];
+    ctx.fillStyle = c >= o ? '#3dff9a' : '#ff5a6e';
+    const cx = x + i * cw;
+    const wick = rand(seed * 3 + i + shift) * 0.9;
+    const wt = yOf(Math.max(o, c) + wick);
+    ctx.fillRect(cx + cw / 2 - 0.5, wt, 1, yOf(Math.min(o, c) - wick) - wt);
+    ctx.fillRect(cx + 1, yOf(Math.max(o, c)), Math.max(2, cw - 2), Math.max(1.5, Math.abs(yOf(o) - yOf(c))));
+  }
+  ctx.strokeStyle = '#f0c14a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  closes.forEach((_, i) => {
+    const win = closes.slice(Math.max(0, i - 4), i + 1);
+    const avg = win.reduce((a, b) => a + b, 0) / win.length;
+    const px = x + i * cw + cw / 2;
+    if (i === 0) ctx.moveTo(px, yOf(avg));
+    else ctx.lineTo(px, yOf(avg));
+  });
+  ctx.stroke();
+  const up = closes[closes.length - 1] >= closes[closes.length - 2];
+  ctx.font = '700 8px ui-monospace, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#d6e4f0';
+  ctx.fillText(label, x + 3, y + 9);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = up ? '#3dff9a' : '#ff5a6e';
+  ctx.fillText(up ? '▲' : '▼', x + w - 3, y + 9);
+  ctx.textAlign = 'left';
+}
+
+function tickerTape(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, items: string[], t: number): void {
+  ctx.fillStyle = '#0b1420';
+  roundRect(ctx, x, y, w, 12, 2);
+  ctx.fill();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x + 2, y, w - 4, 12);
+  ctx.clip();
+  ctx.font = '700 8px ui-monospace, monospace';
+  ctx.textAlign = 'left';
+  const gap = '   ·   ';
+  const tw = items.reduce((a, it) => a + ctx.measureText(it + gap).width, 0);
+  const off = (t * 22) % tw;
+  for (let k = 0; k < 3; k++) {
+    let cx = x + 4 - off + k * tw;
+    for (const it of items) {
+      ctx.fillStyle = it.includes('▲') ? '#3dff9a' : '#ff5a6e';
+      ctx.fillText(it, cx, y + 9);
+      cx += ctx.measureText(it).width;
+      ctx.fillStyle = '#5a6a7a';
+      ctx.fillText(gap, cx, y + 9);
+      cx += ctx.measureText(gap).width;
+    }
+  }
+  ctx.restore();
+}
+
+function sticky(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, tilt: number): void {
+  ctx.save();
+  ctx.translate(x + 7, y + 7);
+  ctx.rotate(tilt);
+  ctx.fillStyle = color;
+  ctx.fillRect(-7, -7, 14, 14);
+  ctx.fillStyle = 'rgba(40,30,20,0.45)';
+  ctx.fillRect(-5, -3, 10, 1.2);
+  ctx.fillRect(-5, 0, 7, 1.2);
+  ctx.fillRect(-5, 3, 9, 1.2);
+  ctx.restore();
+}
+
+function beanbag(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  shadow(ctx, x, y, 26, 20);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x + 13, y + 11, 13, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(x + 10, y + 7, 6, 4, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function studyTable(ctx: CanvasRenderingContext2D, x: number, y: number, w: number): void {
+  shadow(ctx, x, y, w, 30);
+  ctx.fillStyle = '#6b4226';
+  roundRect(ctx, x, y + 6, w, 22, 4);
+  ctx.fill();
+  ctx.fillStyle = '#9a6a3e';
+  roundRect(ctx, x + 2, y + 4, w - 4, 18, 4);
+  ctx.fill();
+  ['#e25b5b', '#5aa6e6'].forEach((c, i) => {
+    ctx.fillStyle = c;
+    ctx.fillRect(x + 8 + i * 20, y + 8, 14, 10);
+    ctx.fillStyle = '#fffaf3';
+    ctx.fillRect(x + 15 + i * 20, y + 8, 1, 10);
+  });
+  ctx.fillStyle = '#1b2430';
+  roundRect(ctx, x + w - 26, y + 7, 20, 12, 2);
+  ctx.fill();
+  ctx.fillStyle = '#9cd0ff';
+  ctx.fillRect(x + w - 24, y + 9, 16, 8);
+}
+
+function drawRoomFurniture(ctx: CanvasRenderingContext2D, room: RoomDef, veto: boolean, t: number): void {
   const x = room.x * TILE;
   const y = room.y * TILE;
   const w = room.w * TILE;
@@ -152,14 +293,20 @@ function drawRoomFurniture(ctx: CanvasRenderingContext2D, room: RoomDef, veto: b
   ctx.globalAlpha = 1;
 
   if (room.id === 'charts') {
-    desk(ctx, x + 28, y + 36, 92, ['#163024', '#163024']);
-    desk(ctx, x + 140, y + 36, 92, ['#163024', '#102040']);
-    desk(ctx, x + 250, y + 36, 100, ['#163024', '#163024', '#102040']);
-    chair(ctx, x + 60, y + 78, '#3d6b8a');
-    chair(ctx, x + 172, y + 78, '#c46a4a');
-    chair(ctx, x + 286, y + 78, '#3e8f4a');
-    plant(ctx, x + w - 36, y + h - 48);
-    lamp(ctx, x + 18, y + 28);
+    // market analysis wall: crypto on top, stocks below
+    const walls: Array<[string, number]> = [
+      ['BTC/USDT 15m', 11], ['ETH/USDT 15m', 23], ['SOL/USDT 5m', 37],
+      ['IBOV · B3', 51], ['S&P 500', 67], ['PETR4 · VALE3', 83],
+    ];
+    const sw = (w - 44) / 3;
+    walls.forEach(([label, seed], i) => {
+      marketScreen(ctx, x + 18 + (i % 3) * (sw + 4), y + 12 + Math.floor(i / 3) * 48, sw, 42, label, seed, t + i * 0.37);
+    });
+    tickerTape(ctx, x + 14, y + 110, w - 28, ['BTC ▲1.8%', 'ETH ▲0.9%', 'SOL ▼0.6%', 'IBOV ▲0.4%', 'PETR4 ▼1.1%', 'VALE3 ▲0.7%', 'DXY ▼0.2%', 'NASDAQ ▲0.5%'], t);
+    desk(ctx, x + 28, y + 140, 92, ['#163024', '#102040']);
+    desk(ctx, x + 140, y + 140, 92, ['#163024', '#163024']);
+    desk(ctx, x + 250, y + 140, 60, ['#102040']);
+    plant(ctx, x + w - 26, y + h - 30);
   } else if (room.id === 'news') {
     ctx.fillStyle = '#1c2430';
     roundRect(ctx, x + 24, y + 28, w - 48, 48, 6);
@@ -226,60 +373,98 @@ function drawRoomFurniture(ctx: CanvasRenderingContext2D, room: RoomDef, veto: b
     plant(ctx, x + w - 36, y + 40);
     lamp(ctx, x + w - 28, y + h - 60);
   } else if (room.id === 'talk') {
-    shadow(ctx, x + w / 2 - 36, y + h / 2 - 10, 72, 48);
-    ctx.fillStyle = '#a86838';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h / 2 + 10, 40, 26, 0, 0, Math.PI * 2);
+    // meeting room: TV with the agenda and a long conference table
+    ctx.fillStyle = '#1b2430';
+    roundRect(ctx, x + w / 2 - 56, y + 10, 112, 42, 4);
     ctx.fill();
-    ctx.fillStyle = '#e2b072';
-    ctx.beginPath();
-    ctx.ellipse(x + w / 2, y + h / 2 + 6, 32, 18, 0, 0, Math.PI * 2);
+    marketScreen(ctx, x + w / 2 - 52, y + 14, 52, 34, 'PnL', 97, t);
+    ctx.fillStyle = '#eaf2ff';
+    ctx.font = '700 7px ui-monospace, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('PAUTA', x + w / 2 + 6, y + 22);
+    ctx.fillStyle = '#9cb0c8';
+    ctx.fillText('1 cenário', x + w / 2 + 6, y + 31);
+    ctx.fillText('2 risco', x + w / 2 + 6, y + 39);
+    ctx.fillText('3 plano', x + w / 2 + 6, y + 47);
+    const tx = x + w / 2 - 26;
+    const ty = y + 74;
+    shadow(ctx, tx, ty, 52, 150);
+    ctx.fillStyle = '#5a3a22';
+    roundRect(ctx, tx, ty + 4, 52, 150, 22);
     ctx.fill();
-    chair(ctx, x + w / 2 - 46, y + h / 2 - 8, '#c46a4a');
-    chair(ctx, x + w / 2 + 28, y + h / 2 - 8, '#3d6b8a');
-    chair(ctx, x + w / 2 - 10, y + h / 2 + 28, '#3e8f4a');
-    chair(ctx, x + w / 2 - 10, y + h / 2 - 36, '#6d5b8a');
-    plant(ctx, x + 16, y + 28);
-    lamp(ctx, x + w - 28, y + 28);
+    ctx.fillStyle = '#8a5a32';
+    roundRect(ctx, tx + 3, ty, 46, 146, 20);
+    ctx.fill();
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = '#fffaf3';
+      ctx.fillRect(tx + 8, ty + 18 + i * 32, 11, 8);
+      ctx.fillRect(tx + 33, ty + 24 + i * 32, 11, 8);
+    }
+    ctx.fillStyle = '#d7dde2';
+    ctx.beginPath();
+    ctx.arc(tx + 26, ty + 72, 6, 0, Math.PI * 2);
+    ctx.fill();
+    plant(ctx, x + 12, y + 16);
+    plant(ctx, x + w - 28, y + 16);
   } else if (room.id === 'present') {
-    ctx.fillStyle = '#f7f4ee';
-    roundRect(ctx, x + 20, y + 26, w - 40, 58, 4);
+    // ideas room: whiteboard full of sticky notes and a cozy corner
+    ctx.fillStyle = '#c9ccd2';
+    roundRect(ctx, x + 14, y + 12, w - 28, 74, 4);
     ctx.fill();
-    ctx.strokeStyle = '#6d5b8a';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.fillStyle = '#3dce6e';
-    ctx.beginPath();
-    ctx.moveTo(x + 36, y + 68);
-    ctx.lineTo(x + 56, y + 48);
-    ctx.lineTo(x + 74, y + 58);
-    ctx.lineTo(x + 96, y + 36);
-    ctx.lineTo(x + 120, y + 50);
+    ctx.fillStyle = '#fbfbf8';
+    roundRect(ctx, x + 17, y + 15, w - 34, 66, 3);
+    ctx.fill();
+    const notes = ['#ffe36e', '#ffb3c7', '#9fe3ff', '#b8f28a', '#ffd08a'];
+    for (let i = 0; i < 10; i++) {
+      sticky(ctx, x + 24 + (i % 5) * 28, y + 20 + Math.floor(i / 5) * 22, notes[i % notes.length], (rand(i + 5) - 0.5) * 0.35);
+    }
     ctx.strokeStyle = '#3d6b8a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + 26, y + 74);
+    ctx.lineTo(x + 70, y + 66);
+    ctx.lineTo(x + 110, y + 72);
+    ctx.lineTo(x + 160, y + 62);
     ctx.stroke();
-    desk(ctx, x + 28, y + h - 78, 70, ['#241c30']);
-    chair(ctx, x + 48, y + h - 46, '#6d5b8a');
-    lamp(ctx, x + w - 30, y + h - 70);
+    ctx.fillStyle = '#c0392b';
+    ctx.font = '700 8px ui-monospace, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('TESES', x + w - 52, y + 77);
+    ctx.fillStyle = '#c4894f';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + 150, 26, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    sticky(ctx, x + w / 2 - 8, y + 142, '#ffe36e', 0.2);
+    beanbag(ctx, x + 12, y + 210, '#e0a43c');
+    beanbag(ctx, x + w - 38, y + 210, '#5b8cff');
+    lamp(ctx, x + w - 26, y + 100);
   } else if (room.id === 'library') {
-    shelf(ctx, x + 14, y + 22, 70);
-    shelf(ctx, x + 36, y + 22, 70);
-    shelf(ctx, x + 58, y + 22, 70);
-    desk(ctx, x + 22, y + h - 80, 64, ['#3a2414']);
-    chair(ctx, x + 42, y + h - 48, '#7a4e32');
-    plant(ctx, x + w - 28, y + h - 48);
+    // study room: wall of books, study tables and a reading nook
+    for (let i = 0; i < 9; i++) shelf(ctx, x + 14 + i * 19, y + 12, 62);
+    ctx.fillStyle = '#4f6b3a';
+    ctx.font = '700 7px ui-monospace, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('ESTATÍSTICA · TA · MACRO · RISCO', x + 16, y + 88);
+    studyTable(ctx, x + 18, y + 104, 72);
+    studyTable(ctx, x + 108, y + 104, 72);
+    beanbag(ctx, x + 12, y + 214, '#7a4e32');
+    lamp(ctx, x + 44, y + 206);
+    plant(ctx, x + w - 28, y + h - 34);
   } else if (room.id === 'coffee') {
     ctx.fillStyle = '#d7dde2';
-    roundRect(ctx, x + 12, y + 22, 26, 32, 4);
+    roundRect(ctx, x + 12, y + 16, 26, 32, 4);
     ctx.fill();
     ctx.fillStyle = '#6b3a22';
-    ctx.fillRect(x + 18, y + 40, 10, 6);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.fillRect(x + 28, y + 16, 3, 8);
-    ctx.fillStyle = '#c47a4a';
-    roundRect(ctx, x + 46, y + 36, 36, 16, 6);
+    ctx.fillRect(x + 18, y + 34, 10, 6);
+    ctx.fillStyle = `rgba(255,255,255,${0.4 + Math.sin(t * 3) * 0.3})`;
+    ctx.fillRect(x + 21, y + 8 - ((t * 6) % 6), 2, 6);
+    ctx.fillStyle = '#e8eef3';
+    roundRect(ctx, x + 46, y + 14, 22, 40, 3);
     ctx.fill();
-    plant(ctx, x + 14, y + 70);
-    lamp(ctx, x + w - 24, y + 24);
+    ctx.fillStyle = '#c47a4a';
+    roundRect(ctx, x + 20, y + 200, w - 40, 18, 8);
+    ctx.fill();
+    plant(ctx, x + w - 28, y + 20);
   } else {
     desk(ctx, x + 16, y + 28, 60, ['#14302c']);
     chair(ctx, x + 34, y + 66, '#2f8f86');
@@ -407,7 +592,7 @@ export function drawOffice(ctx: CanvasRenderingContext2D, cam: Camera, avatars: 
   }
 
   const veto = avatars.some((a) => a.room === 'risk' && a.error);
-  for (const room of ROOMS) drawRoomFurniture(ctx, room, veto);
+  for (const room of ROOMS) drawRoomFurniture(ctx, room, veto, t);
 
   const order = [...avatars].sort((a, b) => a.y - b.y);
   for (const av of order) {

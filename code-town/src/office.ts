@@ -21,15 +21,15 @@ export interface RoomDef {
 }
 
 export const ROOMS: RoomDef[] = [
-  { id: 'charts', label: 'Gráficos', plate: 'GRÁFICOS', x: 1, y: 1, w: 8, h: 6, door: 'south', floor: '#e4c89a', floorAlt: '#d7b888', rug: '#c46a4a' },
+  { id: 'charts', label: 'Análise', plate: 'PAINEL DE ANÁLISE', x: 1, y: 1, w: 8, h: 6, door: 'south', floor: '#e4c89a', floorAlt: '#d7b888', rug: '#c46a4a' },
   { id: 'news', label: 'Redação', plate: 'REDAÇÃO', x: 9, y: 1, w: 6, h: 6, door: 'south', floor: '#efd3a4', floorAlt: '#e4c492', rug: '#d27b45' },
   { id: 'whales', label: 'On-chain', plate: 'BALEIAS', x: 15, y: 1, w: 5, h: 6, door: 'south', floor: '#d5e2ea', floorAlt: '#c5d5e0', rug: '#3d7ea6' },
   { id: 'risk', label: 'Risco', plate: 'RISCO', x: 20, y: 1, w: 5, h: 6, door: 'south', floor: '#e7d3d6', floorAlt: '#dcc4c8', rug: '#a33b45' },
-  { id: 'code', label: 'Código', plate: 'CÓDIGO', x: 1, y: 8, w: 5, h: 7, door: 'north', floor: '#d7e0ea', floorAlt: '#c9d4e2', rug: '#3f6f86' },
-  { id: 'talk', label: 'Conversa', plate: 'CONVERSA', x: 6, y: 8, w: 5, h: 7, door: 'north', floor: '#f0d7b0', floorAlt: '#e6c89a', rug: '#c9844a' },
-  { id: 'present', label: 'Apresentação', plate: 'APRESENTAÇÃO', x: 11, y: 8, w: 4, h: 7, door: 'north', floor: '#e7dcc8', floorAlt: '#dccfb6', rug: '#6d5b8a' },
-  { id: 'library', label: 'Biblioteca', plate: 'ESTUDO', x: 15, y: 8, w: 3, h: 7, door: 'north', floor: '#ead8b8', floorAlt: '#e0cca6', rug: '#7a4e32' },
-  { id: 'coffee', label: 'Copa', plate: 'COPA', x: 18, y: 8, w: 8, h: 7, door: 'north', floor: '#f3ddc0', floorAlt: '#e8d0ae', rug: '#c47a4a' },
+  { id: 'code', label: 'Código', plate: 'CÓDIGO', x: 1, y: 8, w: 4, h: 7, door: 'north', floor: '#d7e0ea', floorAlt: '#c9d4e2', rug: '#3f6f86' },
+  { id: 'talk', label: 'Reunião', plate: 'SALA DE REUNIÃO', x: 5, y: 8, w: 6, h: 7, door: 'north', floor: '#e9dcc6', floorAlt: '#dfcfb4', rug: '#5b4a7a' },
+  { id: 'present', label: 'Ideias', plate: 'IDEIAS', x: 11, y: 8, w: 5, h: 7, door: 'north', floor: '#f2e6c8', floorAlt: '#e8d9b4', rug: '#e0a43c' },
+  { id: 'library', label: 'Estudos', plate: 'SALA DE ESTUDOS', x: 16, y: 8, w: 5, h: 7, door: 'north', floor: '#ead8b8', floorAlt: '#e0cca6', rug: '#4f6b3a' },
+  { id: 'coffee', label: 'Copa', plate: 'COPA', x: 21, y: 8, w: 4, h: 7, door: 'north', floor: '#f3ddc0', floorAlt: '#e8d0ae', rug: '#c47a4a' },
 ];
 
 export interface Spot {
@@ -60,33 +60,36 @@ const SPOTS: Record<RoomId, Spot[]> = {
   ],
   code: [
     { room: 'code', x: 2, y: 11 },
-    { room: 'code', x: 4, y: 11 },
-    { room: 'code', x: 3, y: 12 },
+    { room: 'code', x: 3, y: 11 },
+    { room: 'code', x: 2, y: 12 },
   ],
   talk: [
-    { room: 'talk', x: 7, y: 11 },
-    { room: 'talk', x: 9, y: 11 },
-    { room: 'talk', x: 7, y: 12 },
+    { room: 'talk', x: 6, y: 10 },
+    { room: 'talk', x: 9, y: 10 },
+    { room: 'talk', x: 6, y: 12 },
     { room: 'talk', x: 9, y: 12 },
+    { room: 'talk', x: 6, y: 11 },
+    { room: 'talk', x: 9, y: 11 },
   ],
   present: [
-    { room: 'present', x: 12, y: 11 },
-    { room: 'present', x: 13, y: 12 },
+    { room: 'present', x: 12, y: 12 },
+    { room: 'present', x: 14, y: 12 },
+    { room: 'present', x: 13, y: 13 },
   ],
   library: [
-    { room: 'library', x: 16, y: 11 },
-    { room: 'library', x: 16, y: 12 },
+    { room: 'library', x: 17, y: 12 },
+    { room: 'library', x: 19, y: 12 },
+    { room: 'library', x: 18, y: 13 },
   ],
   coffee: [
-    { room: 'coffee', x: 19, y: 11 },
-    { room: 'coffee', x: 21, y: 11 },
+    { room: 'coffee', x: 22, y: 11 },
     { room: 'coffee', x: 23, y: 11 },
-    { room: 'coffee', x: 20, y: 12 },
+    { room: 'coffee', x: 22, y: 12 },
+    { room: 'coffee', x: 23, y: 12 },
   ],
   other: [
-    { room: 'other', x: 23, y: 11 },
-    { room: 'other', x: 24, y: 11 },
-    { room: 'other', x: 23, y: 12 },
+    { room: 'other', x: 22, y: 13 },
+    { room: 'other', x: 23, y: 13 },
   ],
 };
 
