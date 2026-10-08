@@ -2,14 +2,18 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
     "strict": true,
-    "noEmit": true,
-    "lib": ["ES2022", "DOM"],
-    "resolveJsonModule": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
-    "types": []
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
+    "noEmit": true
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["client/src", "shared"],
+  "exclude": ["**/*.test.ts"]
 }
