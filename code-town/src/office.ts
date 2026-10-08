@@ -1,10 +1,10 @@
 import type { RoomId } from './agents';
 
 /** World pixels per floor tile. Furniture is drawn in this space, several tiles wide. */
-export const TILE = 36;
+export const TILE = 40;
 
-export const MAP_W = 34;
-export const MAP_H = 20;
+export const MAP_W = 26;
+export const MAP_H = 16;
 
 export interface RoomDef {
   id: RoomId;
@@ -21,16 +21,15 @@ export interface RoomDef {
 }
 
 export const ROOMS: RoomDef[] = [
-  { id: 'charts', label: 'Gráficos', plate: 'GRÁFICOS', x: 1, y: 1, w: 11, h: 8, door: 'south', floor: '#e4c89a', floorAlt: '#d7b888', rug: '#c46a4a' },
-  { id: 'news', label: 'Redação', plate: 'REDAÇÃO', x: 12, y: 1, w: 8, h: 8, door: 'south', floor: '#efd3a4', floorAlt: '#e4c492', rug: '#d27b45' },
-  { id: 'whales', label: 'On-chain', plate: 'BALEIAS', x: 20, y: 1, w: 7, h: 8, door: 'south', floor: '#d5e2ea', floorAlt: '#c5d5e0', rug: '#3d7ea6' },
-  { id: 'risk', label: 'Risco', plate: 'RISCO', x: 27, y: 1, w: 6, h: 8, door: 'south', floor: '#e7d3d6', floorAlt: '#dcc4c8', rug: '#a33b45' },
-  { id: 'code', label: 'Código', plate: 'CÓDIGO', x: 1, y: 10, w: 8, h: 9, door: 'north', floor: '#d7e0ea', floorAlt: '#c9d4e2', rug: '#3f6f86' },
-  { id: 'talk', label: 'Conversa', plate: 'CONVERSA', x: 9, y: 10, w: 8, h: 9, door: 'north', floor: '#f0d7b0', floorAlt: '#e6c89a', rug: '#c9844a' },
-  { id: 'present', label: 'Apresentação', plate: 'APRESENTAÇÃO', x: 17, y: 10, w: 7, h: 9, door: 'north', floor: '#e7dcc8', floorAlt: '#dccfb6', rug: '#6d5b8a' },
-  { id: 'library', label: 'Biblioteca', plate: 'ESTUDO', x: 24, y: 10, w: 4, h: 9, door: 'north', floor: '#ead8b8', floorAlt: '#e0cca6', rug: '#7a4e32' },
-  { id: 'coffee', label: 'Copa', plate: 'COPA', x: 29, y: 10, w: 4, h: 4, door: 'north', floor: '#f3ddc0', floorAlt: '#e8d0ae', rug: '#c47a4a' },
-  { id: 'other', label: 'Outros', plate: 'OUTROS', x: 29, y: 15, w: 4, h: 4, door: 'north', floor: '#d5ebe4', floorAlt: '#c6e0d8', rug: '#2f8f86' },
+  { id: 'charts', label: 'Gráficos', plate: 'GRÁFICOS', x: 1, y: 1, w: 8, h: 6, door: 'south', floor: '#e4c89a', floorAlt: '#d7b888', rug: '#c46a4a' },
+  { id: 'news', label: 'Redação', plate: 'REDAÇÃO', x: 9, y: 1, w: 6, h: 6, door: 'south', floor: '#efd3a4', floorAlt: '#e4c492', rug: '#d27b45' },
+  { id: 'whales', label: 'On-chain', plate: 'BALEIAS', x: 15, y: 1, w: 5, h: 6, door: 'south', floor: '#d5e2ea', floorAlt: '#c5d5e0', rug: '#3d7ea6' },
+  { id: 'risk', label: 'Risco', plate: 'RISCO', x: 20, y: 1, w: 5, h: 6, door: 'south', floor: '#e7d3d6', floorAlt: '#dcc4c8', rug: '#a33b45' },
+  { id: 'code', label: 'Código', plate: 'CÓDIGO', x: 1, y: 8, w: 5, h: 7, door: 'north', floor: '#d7e0ea', floorAlt: '#c9d4e2', rug: '#3f6f86' },
+  { id: 'talk', label: 'Conversa', plate: 'CONVERSA', x: 6, y: 8, w: 5, h: 7, door: 'north', floor: '#f0d7b0', floorAlt: '#e6c89a', rug: '#c9844a' },
+  { id: 'present', label: 'Apresentação', plate: 'APRESENTAÇÃO', x: 11, y: 8, w: 4, h: 7, door: 'north', floor: '#e7dcc8', floorAlt: '#dccfb6', rug: '#6d5b8a' },
+  { id: 'library', label: 'Biblioteca', plate: 'ESTUDO', x: 15, y: 8, w: 3, h: 7, door: 'north', floor: '#ead8b8', floorAlt: '#e0cca6', rug: '#7a4e32' },
+  { id: 'coffee', label: 'Copa', plate: 'COPA', x: 18, y: 8, w: 8, h: 7, door: 'north', floor: '#f3ddc0', floorAlt: '#e8d0ae', rug: '#c47a4a' },
 ];
 
 export interface Spot {
@@ -41,51 +40,53 @@ export interface Spot {
 
 const SPOTS: Record<RoomId, Spot[]> = {
   charts: [
-    { room: 'charts', x: 3, y: 4 },
-    { room: 'charts', x: 6, y: 4 },
-    { room: 'charts', x: 9, y: 4 },
-    { room: 'charts', x: 5, y: 6 },
+    { room: 'charts', x: 3, y: 3 },
+    { room: 'charts', x: 5, y: 3 },
+    { room: 'charts', x: 7, y: 3 },
+    { room: 'charts', x: 4, y: 4 },
   ],
   news: [
-    { room: 'news', x: 14, y: 4 },
-    { room: 'news', x: 17, y: 4 },
-    { room: 'news', x: 15, y: 6 },
+    { room: 'news', x: 11, y: 3 },
+    { room: 'news', x: 13, y: 3 },
+    { room: 'news', x: 12, y: 4 },
   ],
   whales: [
-    { room: 'whales', x: 22, y: 4 },
-    { room: 'whales', x: 24, y: 4 },
+    { room: 'whales', x: 16, y: 3 },
+    { room: 'whales', x: 18, y: 3 },
   ],
   risk: [
-    { room: 'risk', x: 29, y: 5 },
-    { room: 'risk', x: 31, y: 5 },
+    { room: 'risk', x: 21, y: 3 },
+    { room: 'risk', x: 23, y: 4 },
   ],
   code: [
-    { room: 'code', x: 3, y: 13 },
-    { room: 'code', x: 6, y: 13 },
-    { room: 'code', x: 4, y: 16 },
+    { room: 'code', x: 2, y: 11 },
+    { room: 'code', x: 4, y: 11 },
+    { room: 'code', x: 3, y: 12 },
   ],
   talk: [
-    { room: 'talk', x: 11, y: 14 },
-    { room: 'talk', x: 14, y: 14 },
-    { room: 'talk', x: 11, y: 16 },
-    { room: 'talk', x: 14, y: 16 },
+    { room: 'talk', x: 7, y: 11 },
+    { room: 'talk', x: 9, y: 11 },
+    { room: 'talk', x: 7, y: 12 },
+    { room: 'talk', x: 9, y: 12 },
   ],
   present: [
-    { room: 'present', x: 19, y: 15 },
-    { room: 'present', x: 21, y: 15 },
+    { room: 'present', x: 12, y: 11 },
+    { room: 'present', x: 13, y: 12 },
   ],
   library: [
-    { room: 'library', x: 26, y: 14 },
-    { room: 'library', x: 26, y: 16 },
+    { room: 'library', x: 16, y: 11 },
+    { room: 'library', x: 16, y: 12 },
   ],
   coffee: [
-    { room: 'coffee', x: 30, y: 12 },
-    { room: 'coffee', x: 31, y: 12 },
+    { room: 'coffee', x: 19, y: 11 },
+    { room: 'coffee', x: 21, y: 11 },
+    { room: 'coffee', x: 23, y: 11 },
+    { room: 'coffee', x: 20, y: 12 },
   ],
   other: [
-    { room: 'other', x: 30, y: 16 },
-    { room: 'other', x: 31, y: 17 },
-    { room: 'other', x: 30, y: 17 },
+    { room: 'other', x: 23, y: 11 },
+    { room: 'other', x: 24, y: 11 },
+    { room: 'other', x: 23, y: 12 },
   ],
 };
 
@@ -155,4 +156,4 @@ export function tileOf(wx: number, wy: number): { tx: number; ty: number } {
   return { tx: wx / TILE, ty: wy / TILE };
 }
 
-export const EXIT = { x: 2, y: 9 };
+export const EXIT = { x: 2, y: 7 };

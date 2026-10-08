@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { helperFromEvent, nameTag } from './agents.ts';
+import { helperFromEvent, nameTag, onCryptoDesk } from './agents.ts';
 import { AGENTS } from './agents.ts';
 import { isErrorEvent, roomFor, type AgentEvent } from './routing.ts';
 
@@ -63,9 +63,13 @@ test('idle older than 30 min goes to the lounge', () => {
   assert.equal(roomFor(chefe, ev({ kind: 'scan', created_at: old })), 'coffee');
 });
 
-test('other-wing bots stay in the other business room', () => {
-  const leads = AGENTS.find((a) => a.id === 'leads')!;
-  assert.equal(roomFor(leads, ev({ kind: 'scan', agent_id: leads.id })), 'other');
+test('only the crypto desk and its helpers are shown', () => {
+  assert.equal(onCryptoDesk(chefe), true);
+  assert.equal(onCryptoDesk(AGENTS.find((a) => a.id === 'radar-x')!), true);
+  assert.equal(onCryptoDesk(AGENTS.find((a) => a.name === 'Grok Bot')!), false);
+  assert.equal(onCryptoDesk(AGENTS.find((a) => a.id === 'leads')!), false);
+  assert.equal(onCryptoDesk(helperFromEvent('executor-chefe', 'Executor', 'automação do Chefe')), true);
+  assert.equal(onCryptoDesk(helperFromEvent('igor', 'IGORMARCHETTI', 'fila pessoal')), false);
 });
 
 test('failed status is an error bubble', () => {

@@ -1,4 +1,4 @@
-import { AGENTS, findAgent, helperFromEvent, type AgentConfig, type RoomId } from './agents';
+import { DESK_AGENTS, findAgent, helperFromEvent, onCryptoDesk, type AgentConfig, type RoomId } from './agents';
 import { EXIT, claimSpot, resetSpots, type Spot } from './office';
 import { findPath } from './path';
 import { isErrorEvent, poseFor, roomFor, shouldLeave, type AgentEvent, type Pose } from './routing';
@@ -41,7 +41,7 @@ function avatarFrom(agent: AgentConfig, blocked: Uint8Array, w: number, h: numbe
 
 export function createAvatars(blocked: Uint8Array, w: number, h: number): Avatar[] {
   resetSpots();
-  return AGENTS.map((agent) => avatarFrom(agent, blocked, w, h));
+  return DESK_AGENTS.map((agent) => avatarFrom(agent, blocked, w, h));
 }
 
 function resolveAgent(avatars: Avatar[], ev: AgentEvent): AgentConfig | null {
@@ -58,7 +58,7 @@ function resolveAgent(avatars: Avatar[], ev: AgentEvent): AgentConfig | null {
 
 export function applyEvent(avatars: Avatar[], ev: AgentEvent, blocked: Uint8Array, w: number, h: number): void {
   const agent = resolveAgent(avatars, ev);
-  if (!agent) return;
+  if (!agent || !onCryptoDesk(agent)) return;
   let av = avatars.find((a) => a.agent.id === agent.id);
   if (!av) {
     av = avatarFrom(agent, blocked, w, h);

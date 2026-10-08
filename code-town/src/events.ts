@@ -20,21 +20,16 @@ const SCRIPTS: Array<Pick<AgentEvent, 'agent_id' | 'kind' | 'summary' | 'status'
   { agent_id: AGENTS[6].id, kind: 'apresentacao', summary: 'Métricas de 30d no projetor', status: 'ok' },
   { agent_id: AGENTS[7].id, kind: 'estudo', summary: 'Lendo o paper de funding e basis', status: 'ok' },
   { agent_id: AGENTS[8].id, kind: 'macro', summary: 'NY abre em alta, DXY caindo', status: 'ok' },
-  { agent_id: AGENTS[9].id, kind: 'conversa', summary: 'Grok Bot abriu a mesa: setup do Caçador', status: 'ok' },
   { agent_id: AGENTS[0].id, kind: 'apresentacao', summary: 'Chefe apresenta o book: prioridade BTC e ETH', status: 'ok' },
   { agent_id: 'radar-x', kind: 'radar', summary: 'Radar X varreu as manchetes da última hora', status: 'ok' },
   { agent_id: 'executor-chefe', kind: 'codigo', summary: 'Executor rodando a automação do Chefe', status: 'ok' },
-  { agent_id: 'leads', kind: 'lead', summary: 'Três leads novos no funil da manhã', status: 'ok' },
-  { agent_id: 'whatsapp', kind: 'scan', summary: 'Fila do WhatsApp respondida', status: 'ok' },
-  { agent_id: 'igormarchetti', kind: 'idle', summary: 'Sem fila. Café.', status: 'ok' },
 ];
 
 export function seedDemo(now = Date.now()): AgentEvent[] {
   return SCRIPTS.map((s, i) => {
     const agent = AGENTS.find((a) => a.id === s.agent_id);
     const name = agent?.name ?? s.agent_id;
-    const stale = s.agent_id === 'igormarchetti';
-    const created = new Date(now - (stale ? 45 * 60 * 1000 : i * 40_000)).toISOString();
+    const created = new Date(now - i * 40_000).toISOString();
     return {
       id: `demo-${s.agent_id}`,
       agent_id: s.agent_id,
@@ -55,8 +50,7 @@ const EXTRA = [
   { id: AGENTS[5].id, kind: 'risco', summary: 'Exposição agregada ainda dentro do teto', status: 'ok' },
   { id: AGENTS[0].id, kind: 'scan', summary: 'Mantém o book. Sem pressa.' },
   { id: AGENTS[8].id, kind: 'macro', summary: 'Londres lateral, Ásia fechou verde' },
-  { id: AGENTS[9].id, kind: 'rotear', summary: 'Notícias pediu contexto antes do Chefe' },
-  { id: 'whatsapp', kind: 'error', summary: 'Webhook do WhatsApp atrasou', status: 'failed' },
+  { id: AGENTS[7].id, kind: 'estudo', summary: 'Anotando o basis do funding' },
 ];
 
 export function nextDemo(tick: number, now = Date.now()): AgentEvent {

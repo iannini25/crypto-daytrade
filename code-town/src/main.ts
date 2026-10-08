@@ -1,4 +1,4 @@
-import { AGENTS, nameTag } from './agents';
+import { DESK_AGENTS, nameTag } from './agents';
 import { Camera } from './camera';
 import { nextDemo, seedDemo, startLive, supabaseConfigured, type Mode } from './events';
 import { MAP_H, MAP_W, ROOMS, TILE, buildBlocked, roomAt, roomCenter, tileOf, worldOf } from './office';
@@ -32,11 +32,15 @@ function resize(): void {
   canvas.height = Math.floor(window.innerHeight * dpr);
   canvas.style.width = `${window.innerWidth}px`;
   canvas.style.height = `${window.innerHeight}px`;
+  const narrow = window.innerWidth < 800;
+  cam.insets = narrow
+    ? { top: 96, right: 8, bottom: Math.round(window.innerHeight * 0.4), left: 8 }
+    : { top: 96, right: 340, bottom: 10, left: 10 };
   cam.setView(window.innerWidth, window.innerHeight, dpr);
   worldBounds();
   const freeW = Math.max(200, window.innerWidth - cam.insets.left - cam.insets.right);
   const freeH = Math.max(200, window.innerHeight - cam.insets.top - cam.insets.bottom);
-  const fit = Math.min(freeW / (MAP_W * TILE), freeH / (MAP_H * TILE)) * 0.96;
+  const fit = Math.min(freeW / (MAP_W * TILE), freeH / (MAP_H * TILE)) * 0.98;
   if (!resizedOnce) {
     const id = location.hash.replace('#', '');
     const room = ROOMS.find((r) => r.id === id);
@@ -222,5 +226,5 @@ function startDemo(reason: string): void {
 
 boot();
 
-document.querySelector('#count')!.textContent = `${AGENTS.length} agentes`;
+document.querySelector('#count')!.textContent = `${DESK_AGENTS.length} agentes da mesa`;
 renderCard();

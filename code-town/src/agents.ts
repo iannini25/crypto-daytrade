@@ -33,6 +33,31 @@ export interface AgentConfig {
 
 export const AGENTS: AgentConfig[] = raw as AgentConfig[];
 
+/** Crypto desk only. Other businesses stay out of the floor, the feed, and the tabs. */
+const CRYPTO_DESK = new Set([
+  '39635415-c468-4b22-8e7b-cfbe9eeda6b3',
+  '42ce06c4-d3cf-4b75-a093-491540c21049',
+  '470d6a19-e445-403b-b7c3-c4234b76b036',
+  '1f0aa5f1-fb81-4f86-8144-55d4edb5859d',
+  '2edd2c99-d7a0-4b39-baa7-779d52c5fff7',
+  '38c695b5-2abd-43f0-811d-e7b2764b614f',
+  '6ce276d8-3e57-464e-ab79-cf6c0d6b6b4b',
+  'b1f7dc2f-b34b-4019-b799-698572832a73',
+  '5f2db091-36b5-4aa7-ada8-0fda8824cab9',
+  'radar-x',
+]);
+
+export function onCryptoDesk(agent: AgentConfig): boolean {
+  if (CRYPTO_DESK.has(agent.id)) return true;
+  if (!agent.helper || !agent.parent) return false;
+  const boss = agent.parent.toLowerCase();
+  return AGENTS.some(
+    (a) => CRYPTO_DESK.has(a.id) && ((a.tag || a.name).toLowerCase() === boss || a.name.toLowerCase() === boss),
+  );
+}
+
+export const DESK_AGENTS: AgentConfig[] = AGENTS.filter(onCryptoDesk);
+
 export function nameTag(agent: AgentConfig): string {
   const base = agent.tag || agent.name;
   if (agent.helper && agent.parent) return `${base} (${agent.parent})`;

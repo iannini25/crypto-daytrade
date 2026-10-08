@@ -28,6 +28,14 @@ function desk(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, sc
   ctx.fillStyle = '#c4894f';
   roundRect(ctx, x + 2, y + 8, w - 4, 16, 4);
   ctx.fill();
+  ctx.fillStyle = '#fffaf3';
+  ctx.beginPath();
+  ctx.ellipse(x + 18, y + 16, 5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#6b3a22';
+  ctx.beginPath();
+  ctx.ellipse(x + 18, y + 15, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
   const sw = (w - 16) / screens.length;
   screens.forEach((color, i) => {
     const sx = x + 6 + i * sw;
@@ -100,11 +108,39 @@ function shelf(ctx: CanvasRenderingContext2D, x: number, y: number, h: number): 
   }
 }
 
+function clock(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = '#fffaf3';
+  ctx.beginPath();
+  ctx.arc(x, y, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#6b4a2a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x, y - 5);
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 3, y + 1);
+  ctx.stroke();
+}
+
+function poster(ctx: CanvasRenderingContext2D, x: number, y: number, tone: string): void {
+  shadow(ctx, x, y, 18, 16);
+  ctx.fillStyle = '#fffaf3';
+  roundRect(ctx, x, y, 18, 16, 2);
+  ctx.fill();
+  ctx.fillStyle = tone;
+  ctx.fillRect(x + 2, y + 2, 14, 8);
+}
+
 function drawRoomFurniture(ctx: CanvasRenderingContext2D, room: RoomDef, veto: boolean): void {
   const x = room.x * TILE;
   const y = room.y * TILE;
   const w = room.w * TILE;
   const h = room.h * TILE;
+  clock(ctx, x + 18, y + 16);
+  poster(ctx, x + w - 28, y + 12, room.rug);
+  plant(ctx, x + 10, y + h - 28);
   // rug in the middle of the room
   ctx.fillStyle = room.rug;
   roundRect(ctx, x + TILE * 1.2, y + TILE * 1.6, w - TILE * 2.4, h - TILE * 3.1, 10);
@@ -253,8 +289,8 @@ function drawRoomFurniture(ctx: CanvasRenderingContext2D, room: RoomDef, veto: b
 
 function drawCharacter(ctx: CanvasRenderingContext2D, av: Avatar, x: number, y: number, t: number): void {
   const helper = Boolean(av.agent.helper);
-  const s = helper ? 2.1 : 2.7;
-  const bob = av.pose === 'walk' ? Math.sin(t * 9 + av.x) * 1.5 : 0;
+  const s = helper ? 2.6 : 3.3;
+  const bob = av.pose === 'walk' ? Math.sin(t * 9 + av.x) * 2 : Math.sin(t * 2.2 + av.y) * 1.3;
   const sit = av.pose !== 'walk' && av.pose !== 'sleep';
   ctx.save();
   ctx.translate(x, y + bob);
@@ -300,19 +336,33 @@ interface Tag {
   error: boolean;
 }
 
-function layoutTags(tags: Tag[]): void {
+function hits(a: Tag, b: Tag, gap = 4): boolean {
+  return a.x < b.x + b.w + gap && a.x + a.w + gap > b.x && a.y < b.y + b.h + gap && a.y + a.h + gap > b.y;
+}
+
+function layoutTags(tags: Tag[], box: { l: number; t: number; r: number; b: number }): void {
+  const gap = 4;
   tags.sort((a, b) => a.y - b.y || a.x - b.x);
-  for (let pass = 0; pass < 8; pass++) {
+  const clamp = (tag: Tag) => {
+    tag.x = Math.max(box.l, Math.min(box.r - tag.w, tag.x));
+    tag.y = Math.max(box.t, Math.min(box.b - tag.h, tag.y));
+  };
+  for (const tag of tags) clamp(tag);
+  for (let pass = 0; pass < 30; pass++) {
+    let moved = false;
     for (let i = 0; i < tags.length; i++) {
       for (let j = 0; j < i; j++) {
-        const a = tags[i];
-        const b = tags[j];
-        const overlap = a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-        if (!overlap) continue;
-        if (a.x >= b.x) a.x = b.x + b.w + 4;
-        else a.y = b.y + b.h + 2;
+        if (!hits(tags[i], tags[j], gap)) continue;
+        const down = tags[j].y + tags[j].h + gap;
+        if (down + tags[i].h <= box.b) tags[i].y = down;
+        else tags[i].y = Math.max(box.t, tags[j].y - tags[i].h - gap);
+        tags[i].x = Math.min(tags[i].x, box.r - tags[i].w);
+        if (hits(tags[i], tags[j], gap)) tags[i].x = Math.max(box.l, tags[j].x - tags[i].w - gap);
+        clamp(tags[i]);
+        moved = true;
       }
     }
+    if (!moved) break;
   }
 }
 
@@ -359,22 +409,6 @@ export function drawOffice(ctx: CanvasRenderingContext2D, cam: Camera, avatars: 
   const veto = avatars.some((a) => a.room === 'risk' && a.error);
   for (const room of ROOMS) drawRoomFurniture(ctx, room, veto);
 
-  for (const room of ROOMS) {
-    const d = doorOf(room);
-    ctx.fillStyle = '#2a241c';
-    ctx.font = 'bold 11px ui-monospace, monospace';
-    ctx.textAlign = 'center';
-    const label = room.plate;
-    const tw = ctx.measureText(label).width + 10;
-    const lx = (d.x + 1) * TILE;
-    const ly = d.y * TILE + (room.door === 'south' ? -4 : TILE + 2);
-    roundRect(ctx, lx - tw / 2, ly - 12, tw, 14, 6);
-    ctx.fillStyle = '#fffaf3';
-    ctx.fill();
-    ctx.fillStyle = '#3a2a1c';
-    ctx.fillText(label, lx, ly - 1);
-  }
-
   const order = [...avatars].sort((a, b) => a.y - b.y);
   for (const av of order) {
     const p = worldOf(av.x, av.y);
@@ -382,8 +416,30 @@ export function drawOffice(ctx: CanvasRenderingContext2D, cam: Camera, avatars: 
   }
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const platePx = Math.max(13, Math.min(16, 15 * cam.zoom)) * cam.dpr;
+  ctx.font = `700 ${platePx}px ui-monospace, monospace`;
+  ctx.textAlign = 'center';
+  for (const room of ROOMS) {
+    const d = doorOf(room);
+    const lx = (d.x + 1) * TILE;
+    const ly = d.y * TILE + (room.door === 'south' ? 6 : TILE - 4);
+    const s = cam.worldToScreen(lx, ly);
+    const label = room.plate;
+    const tw = ctx.measureText(label).width + 14 * cam.dpr;
+    const th = platePx + 8;
+    ctx.fillStyle = '#fffaf3';
+    ctx.strokeStyle = room.rug;
+    ctx.lineWidth = cam.dpr;
+    roundRect(ctx, s.x - tw / 2, s.y - th + 2, tw, th, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#3a2a1c';
+    ctx.fillText(label, s.x, s.y);
+  }
+
   const tags: Tag[] = [];
-  const fontPx = Math.max(12, Math.min(15, 13 * cam.zoom)) * cam.dpr;
+  const crowded = avatars.length > 8;
+  const fontPx = (crowded ? 12 : 14) * Math.max(0.9, Math.min(1.15, cam.zoom)) * cam.dpr;
   ctx.font = `600 ${fontPx}px ui-monospace, monospace`;
   const now = Date.now();
   for (const av of avatars) {
@@ -393,7 +449,7 @@ export function drawOffice(ctx: CanvasRenderingContext2D, cam: Camera, avatars: 
     const icon = ev ? activityIcon(ev.kind, ev.summary) : '☕';
     const fresh = ev && now - Date.parse(ev.created_at) < BUBBLE_MS && !av.leaving;
     const text = `${icon}  ${nameTag(av.agent)}`;
-    const sub = fresh ? (av.bubble.length > 42 ? `${av.bubble.slice(0, 40)}…` : av.bubble) : '';
+    const sub = fresh ? (av.bubble.length > 28 ? `${av.bubble.slice(0, 26)}…` : av.bubble) : '';
     const w = Math.max(ctx.measureText(text).width, sub ? ctx.measureText(sub).width * 0.92 : 0) + fontPx * 1.4;
     const h = (sub ? fontPx * 2.3 : fontPx * 1.35) + 8;
     tags.push({
@@ -407,7 +463,8 @@ export function drawOffice(ctx: CanvasRenderingContext2D, cam: Camera, avatars: 
       error: av.error && Boolean(fresh),
     });
   }
-  layoutTags(tags);
+  const right = cam.viewW - cam.insets.right - 6;
+  layoutTags(tags, { l: 6, t: cam.insets.top + 4, r: right, b: cam.viewH - cam.insets.bottom - 4 });
   for (const tag of tags) {
     ctx.fillStyle = 'rgba(70,42,24,0.18)';
     roundRect(ctx, tag.x + 2, tag.y + 3, tag.w, tag.h, 12);
