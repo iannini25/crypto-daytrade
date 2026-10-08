@@ -1,8 +1,7 @@
 import { AGENTS, nameTag } from './agents';
 import { Camera } from './camera';
 import { nextDemo, seedDemo, startLive, supabaseConfigured, type Mode } from './events';
-import { tileToWorld, worldToTile } from './iso';
-import { MAP_H, MAP_W, ROOMS, buildBlocked, roomAt, roomCenter } from './office';
+import { MAP_H, MAP_W, ROOMS, TILE, buildBlocked, roomAt, roomCenter, tileOf, worldOf } from './office';
 import { avatarAt, drawOffice } from './render';
 import { applyEvent, createAvatars, stepAvatars, type Avatar } from './sim';
 
@@ -24,17 +23,7 @@ let tick = 0;
 const t0 = performance.now();
 
 const worldBounds = () => {
-  const a = tileToWorld(0, MAP_H);
-  const b = tileToWorld(MAP_W, 0);
-  const c = tileToWorld(0, 0);
-  const d = tileToWorld(MAP_W, MAP_H);
-  const xs = [a.x, b.x, c.x, d.x];
-  const ys = [a.y, b.y, c.y, d.y];
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  cam.bounds = { x: minX - 40, y: minY - 40, w: maxX - minX + 80, h: maxY - minY + 120 };
+  cam.bounds = { x: -20, y: -20, w: MAP_W * TILE + 40, h: MAP_H * TILE + 40 };
 };
 
 function resize(): void {
@@ -45,8 +34,20 @@ function resize(): void {
   canvas.style.height = `${window.innerHeight}px`;
   cam.setView(window.innerWidth, window.innerHeight, dpr);
   worldBounds();
-  const w = tileToWorld(MAP_W / 2, MAP_H / 2 - 1);
-  if (!resizedOnce) cam.focus(w.x, w.y, 0.58);
+  const freeW = Math.max(200, window.innerWidth - cam.insets.left - cam.insets.right);
+  const freeH = Math.max(200, window.innerHeight - cam.insets.top - cam.insets.bottom);
+  const fit = Math.min(freeW / (MAP_W * TILE), freeH / (MAP_H * TILE)) * 0.96;
+  if (!resizedOnce) {
+    const id = location.hash.replace('#', '');
+    const room = ROOMS.find((r) => r.id === id);
+    if (room) {
+      const c = roomCenter(room);
+      const w = worldOf(c.x, c.y);
+      cam.focus(w.x, w.y, 1.55);
+    } else {
+      cam.focus((MAP_W * TILE) / 2, (MAP_H * TILE) / 2, fit);
+    }
+  }
   cam.clamp();
 }
 let resizedOnce = false;
@@ -60,8 +61,8 @@ for (const room of ROOMS) {
   btn.type = 'button';
   btn.addEventListener('click', () => {
     const c = roomCenter(room);
-    const w = tileToWorld(c.x, c.y);
-    cam.focus(w.x, w.y, 1.35);
+    const w = worldOf(c.x, c.y);
+    cam.focus(w.x, w.y, Math.max(cam.zoom, 1.35));
     hoverRoom = room.id;
   });
   roomsEl.append(btn);
@@ -151,8 +152,8 @@ canvas.addEventListener('pointermove', (e) => {
     return;
   }
   const w = cam.screenToWorld(e.clientX, e.clientY);
-  const t = worldToTile(w.x, w.y);
-  hoverRoom = roomAt(Math.floor(t.tx), Math.floor(t.ty))?.id ?? null;
+  const t = tileOf(w.x, w.y);
+  hoverRoom = roomAt(t.tx, t.ty)?.id ?? null;
 });
 canvas.addEventListener('pointerup', (e) => {
   const moved = Math.hypot(e.clientX - lastX, e.clientY - lastY);
@@ -164,13 +165,13 @@ canvas.addEventListener('pointerup', (e) => {
     renderCard();
     return;
   }
-  const w = cam.screenToWorld(e.clientX, e.clientY);
-  const tile = worldToTile(w.x, w.y);
-  const room = roomAt(Math.floor(tile.tx), Math.floor(tile.ty));
+  const wpt = cam.screenToWorld(e.clientX, e.clientY);
+  const tile = tileOf(wpt.x, wpt.y);
+  const room = roomAt(tile.tx, tile.ty);
   if (room) {
     const c = roomCenter(room);
-    const p = tileToWorld(c.x, c.y);
-    cam.focus(p.x, p.y, Math.max(cam.zoom, 1.2));
+    const p = worldOf(c.x, c.y);
+    cam.focus(p.x, p.y, Math.max(cam.zoom, 1.25));
   }
 });
 canvas.addEventListener('wheel', (e) => {

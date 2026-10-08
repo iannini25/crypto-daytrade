@@ -11,7 +11,7 @@ export interface Bounds {
   h: number;
 }
 
-const ZOOM_MIN = 0.45;
+const ZOOM_MIN = 0.35;
 const ZOOM_MAX = 3.2;
 
 export class Camera {

@@ -56,6 +56,20 @@ export function poseFor(room: RoomId, ev: AgentEvent | null, moving: boolean): P
   return 'sit';
 }
 
+export function activityIcon(kind: string, summary = ''): string {
+  const blob = `${kind} ${summary}`.toLowerCase();
+  if (/veto|risco|risk|fail|error|erro/.test(blob)) return '⛔';
+  if (/baleia|whale|on-?chain/.test(blob)) return '🐋';
+  if (/noticia|notícia|news|headline|macro|radar/.test(blob)) return '📰';
+  if (/apresent|métrica|metrica|resultado/.test(blob)) return '📊';
+  if (/codigo|código|code|script|automat/.test(blob)) return '💻';
+  if (/estudo|leitura|paper|biblioteca/.test(blob)) return '📖';
+  if (/convers|chat|reuni|rotea|grupo/.test(blob)) return '💬';
+  if (/idle|coffee|café|cafe|copa|dorm/.test(blob)) return '☕';
+  if (/scan|setup|gr[aá]fico|chart|candle|trade/.test(blob)) return '📈';
+  return '🔍';
+}
+
 export function shouldLeave(agent: AgentConfig, ev: AgentEvent | null, now = Date.now()): boolean {
   if (!agent.temporary || !ev) return false;
   const age = now - Date.parse(ev.created_at);

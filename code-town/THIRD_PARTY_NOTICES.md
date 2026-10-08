@@ -31,8 +31,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-The room art, furniture, and characters in Code Town are drawn procedurally in
-the canvas. They are not copied from Habblaud's sprite pipeline.
+The room art in Code Town is a top-down interior. Habblaud's camera behavior
+and pathfinding are reused. Its furniture sprites are not copied: Habblaud
+draws its own procedural pixel props, and Code Town draws a separate cozy
+set (desks, monitors, chairs, rugs, plants, lamps) in canvas.
+
+## Kenney (CC0)
+
+Floor variety can use tiles from Kenney's Roguelike Indoor pack and Tiny Town,
+both Creative Commons Zero. The files and license texts live in
+`public/assets/kenney/`.
+
+Roguelike Indoor pack and Tiny Town (1.1) by Kenney Vleugels (www.kenney.nl).
+https://creativecommons.org/publicdomain/zero/1.0/
+
+You may use these assets in personal and commercial projects. Credit is
+appreciated and not required. The current office draws furniture in canvas
+so rooms stay readable; the Kenney sheets are vendored for reuse and credit.
 
 ## pixel-agents
 
