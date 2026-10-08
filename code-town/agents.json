@@ -1,0 +1,132 @@
+[
+  {
+    "id": "39635415-c468-4b22-8e7b-cfbe9eeda6b3",
+    "name": "Trader Crypto - Chefe",
+    "role": "Chefe da mesa",
+    "wing": "desk",
+    "home": "trading",
+    "shirt": "#f5c542",
+    "hair": "#2a2118",
+    "skin": "#e0b080"
+  },
+  {
+    "id": "42ce06c4-d3cf-4b75-a093-491540c21049",
+    "name": "Rastreador",
+    "role": "Rastreador de gráficos",
+    "wing": "desk",
+    "home": "trading",
+    "shirt": "#3ecf8e",
+    "hair": "#1a1a1a",
+    "skin": "#c68642"
+  },
+  {
+    "id": "470d6a19-e445-403b-b7c3-c4234b76b036",
+    "name": "Caçador",
+    "role": "Caçador de setups",
+    "wing": "desk",
+    "home": "trading",
+    "shirt": "#5b8cff",
+    "hair": "#3b2414",
+    "skin": "#f1c27d"
+  },
+  {
+    "id": "1f0aa5f1-fb81-4f86-8144-55d4edb5859d",
+    "name": "Notícias",
+    "role": "Mesa de notícias",
+    "wing": "desk",
+    "home": "news",
+    "shirt": "#ff6b4a",
+    "hair": "#111111",
+    "skin": "#8d5524"
+  },
+  {
+    "id": "2edd2c99-d7a0-4b39-baa7-779d52c5fff7",
+    "name": "Baleias",
+    "role": "Fluxo de baleias",
+    "wing": "desk",
+    "home": "trading",
+    "shirt": "#7fd3ff",
+    "hair": "#d8d8d8",
+    "skin": "#ffdbac"
+  },
+  {
+    "id": "38c695b5-2abd-43f0-811d-e7b2764b614f",
+    "name": "Risco",
+    "role": "Risco — o único que diz não",
+    "wing": "desk",
+    "home": "risk",
+    "shirt": "#e23b3b",
+    "hair": "#1c1c1c",
+    "skin": "#e0ac69"
+  },
+  {
+    "id": "6ce276d8-3e57-464e-ab79-cf6c0d6b6b4b",
+    "name": "Estatística",
+    "role": "Estatística",
+    "wing": "desk",
+    "home": "library",
+    "shirt": "#c9a0ff",
+    "hair": "#4a2c12",
+    "skin": "#f1c27d"
+  },
+  {
+    "id": "b1f7dc2f-b34b-4019-b799-698572832a73",
+    "name": "Estudante",
+    "role": "Estudo",
+    "wing": "desk",
+    "home": "library",
+    "shirt": "#9ad14b",
+    "hair": "#222222",
+    "skin": "#c68642"
+  },
+  {
+    "id": "5f2db091-36b5-4aa7-ada8-0fda8824cab9",
+    "name": "Macro Bolsas",
+    "role": "Macro e bolsas",
+    "wing": "desk",
+    "home": "meeting",
+    "shirt": "#f0a050",
+    "hair": "#5a3a1a",
+    "skin": "#ffdbac"
+  },
+  {
+    "id": "158bdc1e-4baa-40d9-81c7-7577cfcbe8ae",
+    "name": "Grok Bot",
+    "role": "Roteador principal",
+    "wing": "desk",
+    "home": "meeting",
+    "shirt": "#111111",
+    "hair": "#f2f2f2",
+    "skin": "#e8c39e"
+  },
+  {
+    "id": "leads",
+    "name": "Leads",
+    "role": "Outros negócios — leads",
+    "wing": "other",
+    "home": "other",
+    "shirt": "#46d6c2",
+    "hair": "#201610",
+    "skin": "#8d5524"
+  },
+  {
+    "id": "whatsapp",
+    "name": "Whatsapp",
+    "role": "Outros negócios — WhatsApp",
+    "wing": "other",
+    "home": "other",
+    "shirt": "#25d366",
+    "hair": "#111111",
+    "skin": "#f1c27d"
+  },
+  {
+    "id": "igormarchetti",
+    "name": "IGORMARCHETTI",
+    "role": "Outros negócios",
+    "wing": "other",
+    "home": "other",
+    "shirt": "#d4af37",
+    "hair": "#2b2118",
+    "skin": "#e0ac69"
+  }
+]
