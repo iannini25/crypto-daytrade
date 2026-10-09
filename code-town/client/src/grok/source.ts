@@ -159,7 +159,7 @@ export class GrokSource {
       tasks: [],
       model: 'Grok Bot',
       startedAt: now,
-      lastEventAt: now - WORK_MS,
+      lastEventAt: 0,
       statusSince: now,
       stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
       seed,
@@ -215,6 +215,11 @@ export class GrokSource {
     info.recent = [...info.recent, act].sort((x, y) => x.at - y.at).slice(-RECENT_MAX);
     info.stats.toolCalls++;
     // Tarefas: só as frases do próprio resumo ("Iniciado…", "Na fila…", "… no ar").
+    if (r.tasks.length && at >= info.lastEventAt) {
+      // tarefa "em andamento" antiga deixa de aparecer quando o agente registra outra (não marcamos como feita:
+      // o log não diz isso). Concluídas ficam como histórico.
+      info.tasks = info.tasks.filter((x) => x.status === 'completed');
+    }
     for (const t of r.tasks) {
       const id = `t:${hash32(t.title)}`;
       info.tasks = [...info.tasks.filter((x) => x.id !== id), { id, title: t.title, status: t.status }];
