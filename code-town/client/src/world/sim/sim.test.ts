@@ -702,3 +702,22 @@ describe('espera de shell', () => {
     expect(ana.pose).toBe('wait');
   });
 });
+
+describe('mesa Grok Bot: descanso fora da sala de trabalho', () => {
+  it('ocioso vai sentar/dormir na copa ou no lounge; trabalhando fica na mesa', () => {
+    const clock = { now: T0 };
+    const sim = newSim();
+    const g = (id: string, status: AgentInfo['status']) => agent(id, '/a', status, { account: 'grok' });
+    sim.applySnapshot(snap([room('/a', 0)], [g('dev', 'working'), g('zz', 'idle')]), clock.now);
+    const dev = sim.chars.get('dev')!;
+    const zz = sim.chars.get('zz')!;
+    const rest = new Set(['core:lounge', 'core:copa']);
+    run(sim, clock, 120, () => !!zz.atSpot && rest.has(sim.spots.get(zz.atSpot)?.areaId ?? ''));
+    expect(rest.has(sim.spots.get(zz.atSpot!)?.areaId ?? '')).toBe(true);
+    expect(dev.atSpot).toBe(dev.homeSpot);
+    // voltou a trabalhar: sai do descanso e vai para a mesa
+    sim.applySnapshot(snap([room('/a', 0)], [g('dev', 'working'), g('zz', 'working')], 2), clock.now);
+    run(sim, clock, 120, () => zz.atSpot === zz.homeSpot);
+    expect(zz.atSpot).toBe(zz.homeSpot);
+  });
+});

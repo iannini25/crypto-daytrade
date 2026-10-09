@@ -6928,3 +6928,11 @@ html.is-replay #world {
     display: none;
   }
 }
+
+/* Histórico individual da mesa: texto completo do achado/conversa (quebra linha). */
+.ui-tl--full .ui-tl__text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}

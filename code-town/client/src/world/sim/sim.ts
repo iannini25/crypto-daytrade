@@ -5,7 +5,7 @@ import type { ArtModule, Dir, RoomTheme } from '../../art/api';
 import type { WorldOptions } from '../api';
 import { COL_W, COMPACT_DELAY_MS, DISMANTLE_DELAY_MS, FOOT_DX, FOOT_DY, MISSING_DEBOUNCE_MS, RUN_SPEED, TILE, WALK_SPEED } from '../constants';
 import { assembleBuilding, type BuildingLayout } from '../layout/building';
-import { RECEPTION_ID } from '../layout/core';
+import { CAFE_ID, LOUNGE_ID, RECEPTION_ID } from '../layout/core';
 import { columnsFor, inRect } from '../layout/geometry';
 import { layoutProjectRoom } from '../layout/room';
 import type { SpotDef, SpotKind } from '../layout/types';
@@ -62,6 +62,13 @@ const FALLBACK_THEME: RoomTheme = {
 };
 
 const LOUNGE_SEATS: SpotKind[] = ['sofa', 'armchair', 'beanbag'];
+/** Descanso da mesa Grok Bot: só copa e lounge. */
+const REST_SEATS: SpotKind[] = ['sofa', 'armchair', 'beanbag', 'cafe_seat'];
+const REST_AREAS = new Set([LOUNGE_ID, CAFE_ID]);
+/** Agentes da mesa Grok Bot (fonte Supabase) descansam fora da sala de trabalho quando ociosos. */
+export function isRestingAway(info: { account: string }): boolean {
+  return info.account === 'grok';
+}
 /** Onde dá para sentar e mexer no celular. */
 const PHONE_SEATS: SpotKind[] = ['beanbag', 'sofa', 'armchair', 'cafe_seat', 'bench'];
 /** Assentos de descanso possíveis já na carga inicial (bancos de corredor/banheiro não). */
@@ -1140,6 +1147,11 @@ export class Sim {
     this.assignHome(ch);
     if (!ch.homeSpot) return this.planOverflow(ch, room);
     ch.standTile = null;
+    // mesa Grok Bot: quem não está trabalhando não fica na sala de trabalho — descansa na copa/lounge
+    if (ch.mode === 'idle' && isRestingAway(ch.info)) {
+      ch.arriving = false;
+      return this.planRest(ch, now);
+    }
     // sala apagada: o primeiro a chegar acende a luz
     if (!room.lightOn && room.phase !== 'dismantling' && !this.switchClaimValid(room)) {
       room.switchClaim = ch.id;
@@ -1176,6 +1188,43 @@ export class Sim {
       }
     }
     return false;
+  }
+
+  /**
+   * Descanso fora das salas de trabalho (mesa Grok Bot): sofá/poltrona/puff do lounge ou mesa da copa;
+   * parado há muito tempo, dorme. De vez em quando uma roda com quem também está à toa, ou o banheiro.
+   */
+  private planRest(ch: Character, now: number): boolean {
+    const rng = ch.rng;
+    const sleepy = isLongIdle(ch.info.status, ch.info.statusSince, now);
+    if (!sleepy && this.social.hasCompany(ch, now) && rng() < 0.35 && this.social.tryInitiate(ch, now, false)) return true;
+    const steps: Step[] = [];
+    if (!sleepy && rng() < 0.12) {
+      const st = this.spots.findFree('stall', { by: ch.id, rng });
+      if (st && this.reserveTemp(ch, st)) {
+        this.pushLeave(ch, steps);
+        steps.push({ t: 'go', tx: st.tx, ty: st.ty }, { t: 'stall', spot: st.id, ms: between(rng, 5000, 10000), phase: 0 }, { t: 'do', fn: () => this.spots.release(st.id, ch.id) });
+        ch.queue.push(...steps);
+        return true;
+      }
+    }
+    const here = ch.atSpot ? this.spots.get(ch.atSpot) : undefined;
+    const restful = (s: SpotDef | undefined): s is SpotDef => !!s && REST_AREAS.has(s.areaId) && REST_SEATS.includes(s.kind);
+    let seat: SpotDef | undefined = restful(here) ? here : undefined;
+    if (!seat) {
+      const cands: SpotDef[] = [];
+      for (const k of REST_SEATS) for (const sp of this.spots.ofKind(k)) if (REST_AREAS.has(sp.areaId) && this.spots.isFree(sp.id, ch.id)) cands.push(sp);
+      if (!cands.length) return false;
+      seat = cands[Math.floor(rng() * cands.length)];
+      if (!this.reserveTemp(ch, seat)) return false;
+      this.pushLeave(ch, steps);
+      steps.push({ t: 'go', tx: seat.tx, ty: seat.ty }, { t: 'enter', spot: seat.id });
+    }
+    const held = seat.kind === 'cafe_seat' && !sleepy ? 'coffee' : 'none';
+    if (sleepy || rng() < 0.2) steps.push({ t: 'act', pose: 'sleep', ms: between(rng, 45_000, 90_000), icon: 'zzz' });
+    else steps.push({ t: 'act', pose: held === 'coffee' ? 'drink' : 'sit', held, ms: between(rng, 20_000, 40_000) });
+    ch.queue.push(...steps);
+    return true;
   }
 
   /** Levantar/sair do lugar atual antes de andar. */
