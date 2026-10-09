@@ -1,0 +1,87 @@
+{
+  "pool_BTC|risco_2.7pct_1ano": {
+    "n_trades_simulados": 7,
+    "mediana_final_R$": 106.28,
+    "p5_final_R$": 93.34,
+    "p95_final_R$": 166.58,
+    "prob_terminar_abaixo_R$100": 0.384,
+    "prob_tocar_R$90_(kill_switch)": 0.004,
+    "prob_chegar_R$500": 0.0,
+    "maxDD_mediano": -0.032,
+    "maxDD_p5_pior": -0.072
+  },
+  "pool_BTC|risco_2.7pct_3anos": {
+    "n_trades_simulados": 21,
+    "mediana_final_R$": 137.25,
+    "p5_final_R$": 90.79,
+    "p95_final_R$": 260.12,
+    "prob_terminar_abaixo_R$100": 0.134,
+    "prob_tocar_R$90_(kill_switch)": 0.093,
+    "prob_chegar_R$500": 0.002,
+    "maxDD_mediano": -0.065,
+    "maxDD_p5_pior": -0.133
+  },
+  "pool_BTC|risco_9pct_(~all-in_stop3ATR)_3anos": {
+    "n_trades_simulados": 21,
+    "mediana_final_R$": 224.37,
+    "p5_final_R$": 71.75,
+    "p95_final_R$": 1188.29,
+    "prob_terminar_abaixo_R$100": 0.151,
+    "prob_tocar_R$90_(kill_switch)": 0.476,
+    "prob_chegar_R$500": 0.22,
+    "maxDD_mediano": -0.207,
+    "maxDD_p5_pior": -0.385
+  },
+  "pool_BTC|_amostra": {
+    "n_trades_reais": 21,
+    "acerto": 0.429,
+    "expect_R": 0.741,
+    "mediana_R": -0.156,
+    "maior_ganho_R": 12.86,
+    "pior_R": -1.04,
+    "expect_R_sem_maior_trade": 0.135
+  },
+  "pool_3pares|risco_2.7pct_1ano": {
+    "n_trades_simulados": 7,
+    "mediana_final_R$": 99.47,
+    "p5_final_R$": 93.15,
+    "p95_final_R$": 180.32,
+    "prob_terminar_abaixo_R$100": 0.519,
+    "prob_tocar_R$90_(kill_switch)": 0.003,
+    "prob_chegar_R$500": 0.0,
+    "maxDD_mediano": -0.035,
+    "maxDD_p5_pior": -0.072
+  },
+  "pool_3pares|risco_2.7pct_3anos": {
+    "n_trades_simulados": 21,
+    "mediana_final_R$": 120.01,
+    "p5_final_R$": 87.46,
+    "p95_final_R$": 278.84,
+    "prob_terminar_abaixo_R$100": 0.258,
+    "prob_tocar_R$90_(kill_switch)": 0.162,
+    "prob_chegar_R$500": 0.006,
+    "maxDD_mediano": -0.075,
+    "maxDD_p5_pior": -0.144
+  },
+  "pool_3pares|risco_9pct_(~all-in_stop3ATR)_3anos": {
+    "n_trades_simulados": 21,
+    "mediana_final_R$": 156.85,
+    "p5_final_R$": 62.33,
+    "p95_final_R$": 1077.13,
+    "prob_terminar_abaixo_R$100": 0.287,
+    "prob_tocar_R$90_(kill_switch)": 0.606,
+    "prob_chegar_R$500": 0.168,
+    "maxDD_mediano": -0.234,
+    "maxDD_p5_pior": -0.415
+  },
+  "pool_3pares|_amostra": {
+    "n_trades_reais": 75,
+    "acerto": 0.28,
+    "expect_R": 0.666,
+    "mediana_R": -0.169,
+    "maior_ganho_R": 31.04,
+    "pior_R": -1.04,
+    "expect_R_sem_maior_trade": 0.255
+  },
+  "_trades_por_ano_1_posicao": 7.0
+}

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Segredos — nunca versionar
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+credentials.env
+*.pem
+*.key
+secrets/
+
+# Estado ao vivo do paper trading (use o template e os exemplos)
+trading-system/paper/estado.json
+trading-system/paper/estado.json.tmp
+trading-system/paper/trades.csv
+trading-system/paper/patrimonio.csv
+trading-system/paper/sinais.log
+trading-system/paper/ultimo_ciclo.json
+
+# Candles baixados (grandes). Os CSVs de métricas em backtests/results/ ficam no git.
+trading-system/backtests/data/
+**/*kline*.csv
+**/*_15m.csv
+**/*_60m.csv
+**/*_1h.csv
+**/*_4h.csv
+
+# Node / Next
+node_modules/
+.next/
+out/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
