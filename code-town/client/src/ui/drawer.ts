@@ -108,6 +108,25 @@ function updateTimelineItem(li: HTMLElement, a: Activity, now: number, who?: str
   li.classList.toggle('is-shell-fail', done === 'fail');
 }
 
+/** Histórico individual (mesa Grok Bot): achados/tarefas e conversas, com o texto completo. */
+const FINDING_TOOLS = /^(achado|tarefa|scan|fluxo|noticias|notícias|macro|metricas|métricas|estudo|setup|veto|aprovacao|decisao|leitura|radar|risco)$/i;
+const FINDINGS_LIMIT = 40;
+
+export function isFinding(a: Activity): boolean {
+  return !!a.tool && FINDING_TOOLS.test(a.tool) && a.kind !== 'communicate';
+}
+
+export function isConversation(a: Activity): boolean {
+  return a.kind === 'communicate';
+}
+
+function updateLogItem(li: HTMLElement, a: Activity, now: number): void {
+  updateTimelineItem(li, a, now);
+  const text = li.children[1] as HTMLElement;
+  setText(text, a.detail || a.text);
+  li.classList.add('ui-tl--full');
+}
+
 // ---------------------------------------------------------------- shells rodando
 
 interface ShellRefs {
@@ -209,6 +228,10 @@ class AgentView {
   private teamEmpty: HTMLElement;
   private timeline: KeyedList<Activity>;
   private timelineSec: ReturnType<typeof section>;
+  private findingsSec: ReturnType<typeof section>;
+  private findings: KeyedList<Activity>;
+  private talksSec: ReturnType<typeof section>;
+  private talks: KeyedList<Activity>;
   private stats: KvList<StatKey>;
   private social: SocialSection;
   private sessionValue: HTMLElement;
@@ -315,6 +338,13 @@ class AgentView {
       update: (row, a) => updateAgentRow(row, a, ctx.account(a.account), false, ctx.now(), ctx.store.snapshot?.agents),
     });
 
+    const fl = h('ol', { class: 'ui-timeline' });
+    this.findingsSec = section('Achados e dados coletados', fl);
+    this.findings = new KeyedList<Activity>(fl, { key: (a) => a.id, create: createTimelineItem, update: (li, a) => updateLogItem(li, a, ctx.now()) });
+    const cl = h('ol', { class: 'ui-timeline' });
+    this.talksSec = section('Conversas de trabalho', cl);
+    this.talks = new KeyedList<Activity>(cl, { key: (a) => a.id, create: createTimelineItem, update: (li, a) => updateLogItem(li, a, ctx.now()) });
+
     const tl = h('ol', { class: 'ui-timeline' });
     this.timelineSec = section('Linha do tempo', tl);
     this.timeline = new KeyedList<Activity>(tl, { key: (a) => a.id, create: createTimelineItem, update: (li, a) => updateTimelineItem(li, a, ctx.now()) });
@@ -355,6 +385,8 @@ class AgentView {
       this.social.el,
       this.tasksSec.el,
       this.teamSec.el,
+      this.findingsSec.el,
+      this.talksSec.el,
       this.timelineSec.el,
       statsSec.el,
     );
@@ -370,6 +402,8 @@ class AgentView {
     this.last = null;
     this.history = [];
     this.timeline.clear();
+    this.findings.clear();
+    this.talks.clear();
     this.tasks.clear();
     this.team.clear();
     this.shells.clear();
@@ -514,6 +548,15 @@ class AgentView {
     const items = this.history.slice(-TIMELINE_LIMIT).reverse();
     this.timeline.sync(items);
     setText(this.timelineSec.extra, this.history.length ? String(this.history.length) : '');
+    // Histórico individual (mais recente primeiro): o que coletou/achou e com quem falou.
+    const found = this.history.filter(isFinding).slice(-FINDINGS_LIMIT).reverse();
+    const talks = this.history.filter(isConversation).slice(-FINDINGS_LIMIT).reverse();
+    this.findings.sync(found);
+    this.talks.sync(talks);
+    setHidden(this.findingsSec.el, found.length === 0);
+    setHidden(this.talksSec.el, talks.length === 0);
+    setText(this.findingsSec.extra, found.length ? String(found.length) : '');
+    setText(this.talksSec.extra, talks.length ? String(talks.length) : '');
 
     this.renderStats(a, now);
   }

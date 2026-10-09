@@ -9,6 +9,10 @@ export interface AgentEvent {
   status: string;
   created_at: string;
   source_id?: string | null;
+  /** Destinatário (tipo `conversa`): nome do agente, ou "Core" / "Risco & Estudo". */
+  to_agent?: string | null;
+  /** Sala informada pelo agente (charts, news, whales, risk, stats, library, talk, coffee, lounge). */
+  room?: string | null;
 }
 
 const IDLE_MS = 30 * 60 * 1000;
@@ -57,6 +61,11 @@ export function poseFor(room: RoomId, ev: AgentEvent | null, moving: boolean): P
 }
 
 export function activityIcon(kind: string, summary = ''): string {
+  const k = kind.toLowerCase();
+  if (k === 'achado') return '🔎';
+  if (k === 'tarefa') return '🛠️';
+  if (k === 'conversa') return '💬';
+  if (k === 'descanso') return '☕';
   const blob = `${kind} ${summary}`.toLowerCase();
   if (/veto|risco|risk|fail|error|erro/.test(blob)) return '⛔';
   if (/baleia|whale|on-?chain/.test(blob)) return '🐋';

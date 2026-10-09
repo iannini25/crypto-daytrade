@@ -62,6 +62,8 @@ const COIN_COLOR = '#ffd34d';
 const LOSS_COLOR = '#ff8a8a';
 
 const KIND_LIST = Object.keys(KINDS) as GatherKind[];
+/** Áreas onde conversa fiada é permitida (salas de trabalho só mostram trabalho real). */
+const SOCIAL_AREAS = new Set([LOUNGE_ID, CAFE_ID, RECEPTION_ID, RESTROOM_ID]);
 const PLACES: Readonly<Record<string, string>> = { [LOUNGE_ID]: 'Lounge', [CAFE_ID]: 'Copa', [RECEPTION_ID]: 'Recepção', [RESTROOM_ID]: 'Banheiros' };
 /** O que se perde/ganha em cada jogo (texto do extrato: "Perdeu no jokenpô para Rafaela"). */
 const MATCH_WHAT: Partial<Record<GatherKind, string>> = {
@@ -461,7 +463,9 @@ export class Social {
       }
       case 'talk':
       case 'rps': {
-        const g = spots.findFreeGroup('talk', { rng: ch.rng, filter: (grp) => grp.every(free) });
+        // mesa Grok Bot: papo social só em área social (copa, lounge, recepção) — nunca no corredor das salas
+        const social = (grp: readonly SpotDef[]) => ch.info.account !== 'grok' || grp.every((p) => SOCIAL_AREAS.has(p.areaId));
+        const g = spots.findFreeGroup('talk', { rng: ch.rng, filter: (grp) => grp.every(free) && social(grp) });
         if (!g) return null;
         return { seats: [...g], pool: [...g] };
       }

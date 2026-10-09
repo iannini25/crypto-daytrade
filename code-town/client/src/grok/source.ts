@@ -2,8 +2,9 @@
 // Ocupa o lugar do simulador do ?mock=1 (mesma interface: snapshot() e tick()), então o escritório,
 // a vida social, o feed e o "Meu dia" funcionam sem servidor — o site é estático na Vercel.
 //
-// Cada setor da mesa é uma sala. O agente fica 'working' na sala do último evento por WORK_MS;
-// depois fica 'idle' e circula pelo prédio (copa, lounge), como no Habblaud.
+// Cada setor da mesa é uma sala. O agente fica 'working' na sua mesa por WORK_MS depois de cada evento
+// real; sem evento novo (ou com `descanso`) fica 'idle' e vai descansar na copa/lounge (sim.ts).
+// Conversa real (`conversa` com to_agent): os dois vão à mesma sala e o balão mostra a mensagem.
 import { createClient } from '@supabase/supabase-js';
 import type { Activity, ActivityKind, AgentInfo, FeedItem, Notice, OfficeSnapshot, RoomInfo } from '../../../shared/types';
 import { hash32 } from '../../../shared/hash';
@@ -17,9 +18,9 @@ export interface GrokTickResult {
   notices: Notice[];
 }
 
-/** Tempo trabalhando na mesa depois de um evento. */
-const WORK_MS = 5 * 60_000;
-const RECENT_MAX = 30;
+/** Sem evento novo por tanto tempo, o agente é tratado como descansando. */
+export const WORK_MS = 20 * 60_000;
+const RECENT_MAX = 80;
 
 const SECTORS: Array<{ id: string; name: string }> = [
   { id: 'charts', name: 'Painel de Análise' },
@@ -31,7 +32,25 @@ const SECTORS: Array<{ id: string; name: string }> = [
   { id: 'risk', name: 'Risco' },
 ];
 /** Tempo que o agente passa na sala do colega (ou no Core) depois de uma conversa registrada. */
-const VISIT_MS = 2 * 60_000;
+export const VISIT_MS = 3 * 60_000;
+/** Destinatários que são o canal da mesa (vão à Sala de Reunião). */
+const GROUP_TARGET = /^(core|mesa|todos|mesa cripto|risco\s*&\s*estudo|grupo|canal)\b/i;
+/** `sala` livre do agente → setor. */
+const ROOM_ALIASES: Array<[RegExp, string]> = [
+  [/(charts?|painel|an[aá]lise|gr[aá]fico)/i, 'charts'],
+  [/(talk|reuni|core|mesa)/i, 'talk'],
+  [/(news|reda|not[ií]cia|macro)/i, 'news'],
+  [/(library|estud|biblio)/i, 'library'],
+  [/(whales?|on-?chain|baleia)/i, 'whales'],
+  [/(stats?|estat|backtest)/i, 'stats'],
+  [/(risk|risco)/i, 'risk'],
+];
+export function sectorOf(room: string | null | undefined): string | undefined {
+  const r = (room ?? '').trim();
+  if (!r) return undefined;
+  for (const [re, id] of ROOM_ALIASES) if (re.test(r)) return id;
+  return undefined;
+}
 const TASKS_MAX = 6;
 
 const ROOM_PREFIX = 'grok:';
@@ -39,6 +58,9 @@ const ROOM_PREFIX = 'grok:';
 function kindOf(ev: AgentEvent): ActivityKind {
   const blob = `${ev.kind} ${ev.summary}`.toLowerCase();
   if (isErrorEvent(ev)) return 'error';
+  const k = (ev.kind || '').toLowerCase();
+  if (k === 'achado') return 'search';
+  if (k === 'tarefa') return 'plan';
   if (/veto|risco|risk/.test(blob)) return 'ask';
   if (/codigo|código|code|script|deploy|commit/.test(blob)) return 'edit';
   if (/convers|reuni|chat|grupo|rotea/.test(blob)) return 'communicate';
@@ -63,6 +85,8 @@ interface Slot {
   desk: string;
   /** Visita registrada (conversa com colega ou post no Core): sala e até quando. */
   visit?: { room: string; until: number };
+  /** Trabalhando até (epoch ms). Depois: descansando. */
+  workUntil: number;
 }
 
 export class GrokSource {
@@ -97,9 +121,9 @@ export class GrokSource {
       const client = createClient(url, key, { realtime: { params: { eventsPerSecond: 8 } } });
       const { data, error } = await client
         .from('agent_events')
-        .select('id,agent_id,agent_name,kind,summary,status,created_at,source_id')
+        .select('id,agent_id,agent_name,kind,summary,status,created_at,source_id,to_agent,room')
         .order('created_at', { ascending: false })
-        .limit(300);
+        .limit(600);
       if (error) throw new Error(error.message);
       for (const row of [...((data ?? []) as AgentEvent[])].reverse()) this.ingest(row, false);
       this.pendingFeed = this.pendingFeed.slice(-120);
@@ -164,7 +188,7 @@ export class GrokSource {
       stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
       seed,
     };
-    slot = { cfg, info, desk: info.roomId };
+    slot = { cfg, info, desk: info.roomId, workUntil: 0 };
     this.agents.set(cfg.id, slot);
     this.dirty = true;
     return slot;
@@ -190,19 +214,42 @@ export class GrokSource {
     const info = slot.info;
     const r = read(cfg, ev.kind, ev.summary || '');
     const error = isErrorEvent(ev);
-    const peer = r.interaction ? agentByTag(r.interaction.peer) : undefined;
-    const peerName = peer ? nameTag(peer) : r.interaction?.peer;
-    // Visita só quando o próprio resumo diz que o agente levou algo a alguém (ou postou no Core).
-    if (r.corePost) slot.visit = { room: ROOM_PREFIX + 'talk', until: at + VISIT_MS };
-    else if (r.interaction?.dir === 'out' && peer) slot.visit = { room: ROOM_PREFIX + deskOf(peer), until: at + VISIT_MS };
-    const talk = Boolean(r.interaction) || r.corePost;
-    const arrow = r.interaction ? (r.interaction.dir === 'out' ? `→ ${peerName}: ` : `← ${peerName}: `) : r.corePost ? '→ Core: ' : '';
+    const k = (ev.kind || '').toLowerCase();
+    const sector = sectorOf(ev.room);
+    // Conversa explícita (log-atividade --tipo conversa --para X): vale sobre a leitura do texto.
+    const to = (ev.to_agent || '').trim();
+    const toCfg = to && !GROUP_TARGET.test(to) ? findAgent(to) : undefined;
+    const toPeer = toCfg && onCryptoDesk(toCfg) && toCfg.id !== cfg.id ? toCfg : undefined;
+    const explicitTalk = k === 'conversa' || Boolean(to);
+    const peer = explicitTalk ? toPeer : r.interaction ? agentByTag(r.interaction.peer) : undefined;
+    const peerName = peer ? nameTag(peer) : explicitTalk ? to || 'Core' : r.interaction?.peer;
+    const corePost = explicitTalk ? !toPeer : r.corePost;
+    const dirOut = explicitTalk || r.interaction?.dir === 'out';
+    if (explicitTalk && toPeer) {
+      // os dois se encontram: na sala pedida, senão na mesa de quem recebe
+      const meet = ROOM_PREFIX + (sector ?? deskOf(toPeer));
+      slot.visit = { room: meet, until: at + VISIT_MS };
+      const ps = this.ensure(toPeer, at);
+      if (meet !== ps.desk) ps.visit = { room: meet, until: at + VISIT_MS };
+      ps.workUntil = Math.max(ps.workUntil, at + VISIT_MS);
+      this.receive(ps, ev, nameTag(cfg), at);
+    } else if (corePost) slot.visit = { room: ROOM_PREFIX + (sector ?? 'talk'), until: at + VISIT_MS };
+    else if (!explicitTalk && r.interaction?.dir === 'out' && peer) slot.visit = { room: ROOM_PREFIX + deskOf(peer), until: at + VISIT_MS };
+    else if (sector && k !== 'descanso') slot.visit = { room: ROOM_PREFIX + sector, until: at + WORK_MS };
+    // descanso (ou sala de descanso): sai do trabalho agora; o resto: trabalha por WORK_MS
+    const resting = k === 'descanso' || /^(coffee|copa|lounge|caf)/i.test(ev.room ?? '');
+    if (resting) {
+      if (at >= info.lastEventAt) slot.workUntil = 0;
+      slot.visit = undefined;
+    } else slot.workUntil = Math.max(slot.workUntil, at + WORK_MS);
+    const talk = explicitTalk || Boolean(r.interaction) || corePost;
+    const arrow = talk ? (dirOut ? `→ ${peerName ?? 'Core'}: ` : `← ${peerName}: `) : '';
     const act: Activity = {
       id: `ev:${ev.id}`,
-      kind: error ? 'error' : r.decision ? 'ask' : talk ? 'communicate' : r.quiet ? 'wait' : kindOf(ev),
+      kind: error ? 'error' : r.decision ? 'ask' : talk ? 'communicate' : resting ? 'wait' : r.quiet ? 'wait' : kindOf(ev),
       icon: r.decision === 'veto' ? '⛔' : r.decision === 'approve' ? '✅' : talk ? '💬' : r.quiet ? '👀' : activityIcon(ev.kind),
       text: clip(arrow + (ev.summary || ev.kind), 46),
-      detail: clip(`${ev.kind} · ${ev.status} — ${ev.summary}`, 300),
+      detail: clip(arrow + (ev.summary || ev.kind), 500),
       tool: ev.kind,
       at,
       error: error || undefined,
@@ -240,6 +287,19 @@ export class GrokSource {
     this.dirty = true;
   }
 
+  /** Quem recebe uma conversa: entra no histórico dele como "← remetente: mensagem". */
+  private receive(slot: Slot, ev: AgentEvent, from: string, at: number): void {
+    const info = slot.info;
+    const text = `← ${from}: ${ev.summary || ev.kind}`;
+    const act: Activity = { id: `ev:${ev.id}:in`, kind: 'communicate', icon: '💬', text: clip(text, 46), detail: clip(text, 500), tool: 'conversa', at };
+    if (at >= info.lastEventAt) {
+      info.activity = act;
+      info.lastEventAt = at;
+    }
+    info.recent = [...info.recent, act].sort((x, y) => x.at - y.at).slice(-RECENT_MAX);
+    this.place(slot, at);
+  }
+
   /** Sala atual: a da visita registrada enquanto durar; senão a mesa do agente. */
   private place(slot: Slot, now: number): void {
     const room = slot.visit && now < slot.visit.until ? slot.visit.room : slot.desk;
@@ -254,7 +314,7 @@ export class GrokSource {
     for (const slot of this.agents.values()) {
       const info = slot.info;
       this.place(slot, now);
-      const next = now - info.lastEventAt < WORK_MS ? 'working' : 'idle';
+      const next = now < slot.workUntil ? 'working' : 'idle';
       if (next !== info.status) {
         info.status = next;
         info.statusSince = now;
