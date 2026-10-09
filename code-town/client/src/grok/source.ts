@@ -200,7 +200,7 @@ export class GrokSource {
     const act: Activity = {
       id: `ev:${ev.id}`,
       kind: error ? 'error' : r.decision ? 'ask' : talk ? 'communicate' : r.quiet ? 'wait' : kindOf(ev),
-      icon: r.decision === 'veto' ? '⛔' : r.decision === 'approve' ? '✅' : talk ? '💬' : r.quiet ? '👀' : activityIcon(ev.kind, ev.summary),
+      icon: r.decision === 'veto' ? '⛔' : r.decision === 'approve' ? '✅' : talk ? '💬' : r.quiet ? '👀' : activityIcon(ev.kind),
       text: clip(arrow + (ev.summary || ev.kind), 46),
       detail: clip(`${ev.kind} · ${ev.status} — ${ev.summary}`, 300),
       tool: ev.kind,
