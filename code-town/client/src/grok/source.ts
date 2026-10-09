@@ -315,9 +315,14 @@ export class GrokSource {
       const info = slot.info;
       this.place(slot, now);
       const next = now < slot.workUntil ? 'working' : 'idle';
+      // parado desde o fim do último trabalho real (não desde que a página abriu)
+      const idleFrom = slot.workUntil || info.lastEventAt;
       if (next !== info.status) {
         info.status = next;
-        info.statusSince = now;
+        info.statusSince = next === 'idle' && idleFrom ? Math.min(now, idleFrom) : now;
+        this.dirty = true;
+      } else if (next === 'idle' && idleFrom && idleFrom < info.statusSince) {
+        info.statusSince = idleFrom;
         this.dirty = true;
       }
     }
