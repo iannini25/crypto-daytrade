@@ -7,8 +7,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Activity, ActivityKind, AgentInfo, FeedItem, Notice, OfficeSnapshot, RoomInfo } from '../../../shared/types';
 import { hash32 } from '../../../shared/hash';
-import { DESK_AGENTS, findAgent, helperFromEvent, nameTag, onCryptoDesk, type AgentConfig, type RoomId } from './agents';
-import { activityIcon, isErrorEvent, roomFor, type AgentEvent } from './routing';
+import { DESK_AGENTS, findAgent, helperFromEvent, nameTag, onCryptoDesk, type AgentConfig } from './agents';
+import { activityIcon, isErrorEvent, type AgentEvent } from './routing';
+import { agentByTag, deskOf, read } from './interpret';
 
 export interface GrokTickResult {
   changed: boolean;
@@ -20,16 +21,18 @@ export interface GrokTickResult {
 const WORK_MS = 5 * 60_000;
 const RECENT_MAX = 30;
 
-const SECTORS: Array<{ id: Exclude<RoomId, 'coffee' | 'other'>; name: string }> = [
+const SECTORS: Array<{ id: string; name: string }> = [
   { id: 'charts', name: 'Painel de Análise' },
-  { id: 'talk', name: 'Sala de Reunião' },
+  { id: 'talk', name: 'Sala de Reunião · Core' },
   { id: 'news', name: 'Redação · Notícias e Macro' },
   { id: 'library', name: 'Sala de Estudos' },
   { id: 'whales', name: 'On-chain · Baleias' },
-  { id: 'present', name: 'Ideias e Apresentação' },
+  { id: 'stats', name: 'Estatística · Backtests' },
   { id: 'risk', name: 'Risco' },
-  { id: 'code', name: 'Código e Automação' },
 ];
+/** Tempo que o agente passa na sala do colega (ou no Core) depois de uma conversa registrada. */
+const VISIT_MS = 2 * 60_000;
+const TASKS_MAX = 6;
 
 const ROOM_PREFIX = 'grok:';
 
@@ -56,7 +59,10 @@ function clip(s: string, n: number): string {
 interface Slot {
   cfg: AgentConfig;
   info: AgentInfo;
-  workRoom: string;
+  /** Sala da mesa do agente (setor fixo). */
+  desk: string;
+  /** Visita registrada (conversa com colega ou post no Core): sala e até quando. */
+  visit?: { room: string; until: number };
 }
 
 export class GrokSource {
@@ -135,7 +141,7 @@ export class GrokSource {
     let slot = this.agents.get(cfg.id);
     if (slot) return slot;
     const parent = cfg.parent ? (findAgent(cfg.parent) ?? undefined) : undefined;
-    const home = cfg.home === 'coffee' || cfg.home === 'other' ? 'charts' : cfg.home;
+    const home = deskOf(cfg);
     const seed = hash32(cfg.id);
     const info: AgentInfo = {
       id: cfg.id,
@@ -158,7 +164,7 @@ export class GrokSource {
       stats: { toolCalls: 0, tokensIn: 0, tokensOut: 0, subagents: 0 },
       seed,
     };
-    slot = { cfg, info, workRoom: info.roomId };
+    slot = { cfg, info, desk: info.roomId };
     this.agents.set(cfg.id, slot);
     this.dirty = true;
     return slot;
@@ -181,42 +187,68 @@ export class GrokSource {
     if (!cfg || !onCryptoDesk(cfg)) return;
     const at = Date.parse(ev.created_at) || Date.now();
     const slot = this.ensure(cfg, at);
-    const room = roomFor(cfg, ev, at);
-    if (room !== 'coffee' && room !== 'other') slot.workRoom = ROOM_PREFIX + room;
+    const info = slot.info;
+    const r = read(cfg, ev.kind, ev.summary || '');
     const error = isErrorEvent(ev);
+    const peer = r.interaction ? agentByTag(r.interaction.peer) : undefined;
+    const peerName = peer ? nameTag(peer) : r.interaction?.peer;
+    // Visita só quando o próprio resumo diz que o agente levou algo a alguém (ou postou no Core).
+    if (r.corePost) slot.visit = { room: ROOM_PREFIX + 'talk', until: at + VISIT_MS };
+    else if (r.interaction?.dir === 'out' && peer) slot.visit = { room: ROOM_PREFIX + deskOf(peer), until: at + VISIT_MS };
+    const talk = Boolean(r.interaction) || r.corePost;
+    const arrow = r.interaction ? (r.interaction.dir === 'out' ? `→ ${peerName}: ` : `← ${peerName}: `) : r.corePost ? '→ Core: ' : '';
     const act: Activity = {
       id: `ev:${ev.id}`,
-      kind: kindOf(ev),
-      icon: activityIcon(ev.kind, ev.summary),
-      text: clip(ev.summary || ev.kind, 46),
+      kind: error ? 'error' : r.decision ? 'ask' : talk ? 'communicate' : r.quiet ? 'wait' : kindOf(ev),
+      icon: r.decision === 'veto' ? '⛔' : r.decision === 'approve' ? '✅' : talk ? '💬' : r.quiet ? '👀' : activityIcon(ev.kind, ev.summary),
+      text: clip(arrow + (ev.summary || ev.kind), 46),
       detail: clip(`${ev.kind} · ${ev.status} — ${ev.summary}`, 300),
       tool: ev.kind,
       at,
       error: error || undefined,
     };
-    const info = slot.info;
     if (at >= info.lastEventAt) {
       info.activity = act;
       info.lastEventAt = at;
-      info.roomId = slot.workRoom;
+      info.title = clip(ev.summary || cfg.role, 120);
     }
-    info.recent = [...info.recent, act].sort((a, b) => a.at - b.at).slice(-RECENT_MAX);
+    info.recent = [...info.recent, act].sort((x, y) => x.at - y.at).slice(-RECENT_MAX);
     info.stats.toolCalls++;
+    // Tarefas: só as frases do próprio resumo ("Iniciado…", "Na fila…", "… no ar").
+    for (const t of r.tasks) {
+      const id = `t:${hash32(t.title)}`;
+      info.tasks = [...info.tasks.filter((x) => x.id !== id), { id, title: t.title, status: t.status }];
+    }
+    info.tasks = info.tasks.slice(-TASKS_MAX);
     if (cfg.helper && cfg.parent) {
       const parent = findAgent(cfg.parent);
       const p = parent && this.agents.get(parent.id);
       if (p && info.recent.length === 1) p.info.stats.subagents++;
     }
+    this.place(slot, at);
     const room0 = this.rooms.get(info.roomId)!;
     this.pendingFeed.push({ id: act.id, agentId: info.id, roomId: info.roomId, agentName: info.name, roomName: room0.name, account: 'grok', activity: act });
-    if (fresh && error) {
-      this.pendingNotices.push({ id: `n:${ev.id}`, level: 'alert', text: `${info.name}: ${act.text}`, agentId: info.id, roomId: info.roomId, at });
+    if (fresh && (error || r.decision)) {
+      const level = r.decision === 'approve' ? 'success' : r.decision === 'veto' || error ? 'alert' : 'info';
+      this.pendingNotices.push({ id: `n:${ev.id}`, level, text: `${info.name}: ${clip(ev.summary, 90)}`, agentId: info.id, roomId: info.roomId, at });
     }
     this.dirty = true;
   }
 
+  /** Sala atual: a da visita registrada enquanto durar; senão a mesa do agente. */
+  private place(slot: Slot, now: number): void {
+    const room = slot.visit && now < slot.visit.until ? slot.visit.room : slot.desk;
+    if (slot.visit && now >= slot.visit.until) slot.visit = undefined;
+    if (slot.info.roomId !== room) {
+      slot.info.roomId = room;
+      this.dirty = true;
+    }
+  }
+
   tick(now: number): GrokTickResult {
-    for (const { info } of this.agents.values()) {
+    for (const slot of this.agents.values()) {
+      const info = slot.info;
+      this.place(slot, now);
       const next = now - info.lastEventAt < WORK_MS ? 'working' : 'idle';
       if (next !== info.status) {
         info.status = next;

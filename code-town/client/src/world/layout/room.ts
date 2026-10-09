@@ -30,7 +30,7 @@ const CRYPTO_POSTERS = ['btc', 'eth', 'candles', 'bull'] as const;
 /** Setores da mesa Grok Bot (salas com id "grok:<setor>"): canto de reunião escolhido por setor. */
 const GROK_MEETING: Record<string, MeetingStyle> = {
   'grok:talk': 'table',
-  'grok:present': 'table',
+  'grok:stats': 'table',
   'grok:library': 'lounge',
   'grok:charts': 'round',
   'grok:news': 'round',
