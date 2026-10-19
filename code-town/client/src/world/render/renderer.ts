@@ -5,7 +5,7 @@ import { TILE, type ArtModule, type CharacterFrameRequest, type IconName, type S
 import type { WorldOptions } from '../api';
 import type { WorldAssets } from '../assets';
 import type { Camera } from '../camera';
-import { BUILDING_H, COL_W, CORE_COLS, CORRIDOR_Y } from '../constants';
+import { COL_W, CORE_COLS, CORRIDOR_Y } from '../constants';
 import { layoutExterior, slotShell, type ExteriorLayout, type SlotShell } from '../layout/exterior';
 import { slotAt } from '../layout/geometry';
 import type { ExteriorProp } from '../layout/types';
@@ -84,7 +84,7 @@ export class Renderer {
   private base: HTMLCanvasElement | null = null;
   private baseX = 0;
   private baseY = 0;
-  private baseCols = -1;
+  private baseSig = '';
   private layoutVersion = -1;
   private assetsVersion = 0;
   private builtAssetsVersion = 0;
@@ -137,11 +137,13 @@ export class Renderer {
   sync(): void {
     const sim = this.sim;
     const assetsChanged = this.builtAssetsVersion !== this.assetsVersion;
-    if (this.baseCols !== sim.building.cols || assetsChanged) this.buildBase();
+    const baseSig = `${sim.building.cols}x${sim.building.rect.w}x${sim.building.rect.h}:${sim.building.desk ? 1 : 0}`;
+    if (this.baseSig !== baseSig || assetsChanged) this.buildBase();
     if (this.layoutVersion !== sim.layoutVersion || assetsChanged) {
       this.layoutVersion = sim.layoutVersion;
       const want = new Set<string>();
-      for (const a of [...sim.building.core, sim.building.corridor]) {
+      const shell = [...sim.building.core, sim.building.corridor];
+      for (const a of shell) {
         want.add(a.id);
         const cur = this.areas.get(a.id);
         if (!cur || cur.layout !== a || assetsChanged) this.areas.set(a.id, buildAreaVis(this.art, a, undefined, this.assets));
@@ -151,7 +153,7 @@ export class Renderer {
         want.add(room.id);
       }
       for (const id of [...this.areas.keys()]) if (!want.has(id)) this.areas.delete(id);
-      this.elevatorVis = this.areas.get('core:recepcao')?.wallItems.filter((w) => w.kind === 'elevator') ?? [];
+      this.elevatorVis = shell.flatMap((a) => this.areas.get(a.id)?.wallItems.filter((w) => w.kind === 'elevator') ?? []);
     }
     // salas: (re)constrói quando surgem, mudam de layout ou de versão (nome/tema)
     this.occupiedSlots.clear();
@@ -170,8 +172,9 @@ export class Renderer {
   /** Camada base: área externa, pátios dos slots e fechamentos do corredor. */
   private buildBase(): void {
     const cols = this.sim.building.cols;
-    this.baseCols = cols;
-    this.exterior = layoutExterior(cols);
+    const height = this.sim.building.rect.h;
+    this.baseSig = `${cols}x${this.sim.building.rect.w}x${height}:${this.sim.building.desk ? 1 : 0}`;
+    this.exterior = layoutExterior(cols, height);
     const b = this.exterior.bounds;
     this.baseX = b.x * TILE;
     this.baseY = b.y * TILE;
@@ -188,12 +191,14 @@ export class Renderer {
     for (let x = this.baseX + 4; x < this.baseX + c.width; x += 24) ctx.fillRect(x, ly, 12, 2);
     this.shells = [];
     this.shellWindows = [];
-    for (let col = CORE_COLS; col < cols; col++) {
-      for (const side of ['north', 'south'] as const) {
-        const sh = slotShell(slotAt(col, side), col === cols - 1);
-        this.shells.push(sh);
-        paintShell(this.art, ctx, sh.floors, sh.walls);
-        for (const w of sh.windows) this.shellWindows.push(toWallVis(w, `shell:${sh.slot}`));
+    if (!this.sim.building.desk) {
+      for (let col = CORE_COLS; col < cols; col++) {
+        for (const side of ['north', 'south'] as const) {
+          const sh = slotShell(slotAt(col, side), col === cols - 1);
+          this.shells.push(sh);
+          paintShell(this.art, ctx, sh.floors, sh.walls);
+          for (const w of sh.windows) this.shellWindows.push(toWallVis(w, `shell:${sh.slot}`));
+        }
       }
     }
     this.desaturate(ctx);
@@ -271,6 +276,7 @@ export class Renderer {
     // vinheta: escurece com a distância ao prédio e chega ao tom da grama "de fora" exatamente na
     // borda da área desenhada (máscara de 1 px por tile, ampliada com suavização)
     const bwT = cols * COL_W;
+    const buildingH = this.sim.building.rect.h;
     const smooth = (a: number, z: number, v: number) => {
       const t = Math.max(0, Math.min(1, (v - a) / Math.max(1e-6, z - a)));
       return t * t * (3 - 2 * t);
@@ -286,7 +292,7 @@ export class Renderer {
           const wx = b.x + tx + 0.5;
           const wy = b.y + ty + 0.5;
           const fx = wx < 0 ? smooth(6, -b.x, -wx) : wx > bwT ? smooth(6, b.x + b.w - bwT, wx - bwT) : 0;
-          const fy = wy < 0 ? smooth(5, -b.y, -wy) : wy > BUILDING_H ? smooth(12, b.y + b.h - BUILDING_H, wy - BUILDING_H) : 0;
+          const fy = wy < 0 ? smooth(5, -b.y, -wy) : wy > buildingH ? smooth(12, b.y + b.h - buildingH, wy - buildingH) : 0;
           const i = (ty * b.w + tx) * 4;
           img.data[i] = 18;
           img.data[i + 1] = 40;
@@ -302,7 +308,7 @@ export class Renderer {
       // sem vinheta
     }
     // capacho diante da fachada de vidro da entrada (oeste do corredor)
-    const my = (CORRIDOR_Y + 1.25) * TILE;
+    const my = (this.sim.building.desk ? Math.max(0, buildingH - 9) : CORRIDOR_Y + 1.25) * TILE;
     ctx.fillStyle = '#3f4652';
     ctx.fillRect(-1.75 * TILE, my, 1.5 * TILE, 2.5 * TILE);
     ctx.fillStyle = '#596170';
@@ -619,8 +625,9 @@ export class Renderer {
         const r = s.base.rects?.tv;
         // roda na TV do lounge: o programa escolhido (futebol, novela, desenho) ou o videogame
         const live = this.sim.social.tvScreen();
-        const mode = live ? live.mode : TV_MODES[Math.floor(now / 9000) % TV_MODES.length];
-        const seed = live ? live.seed : w.seed;
+        const trading = vis.id.startsWith('grok:');
+        const mode = trading ? (vis.id === 'grok:library' ? 'docs' : 'candles') : live ? live.mode : TV_MODES[Math.floor(now / 9000) % TV_MODES.length];
+        const seed = !trading && live ? live.seed : w.seed;
         if (r) this.safe(() => this.art.drawScreen(ctx, { x: o.x + r.x, y: o.y + rise + r.y, w: r.w, h: r.h }, mode, now, seed));
         return;
       }
@@ -768,13 +775,16 @@ export class Renderer {
     if (room && room.light(this.sim.now) < 0.3) return 'off';
     const owner = f.seatSpot ? this.sim.spots.ownerOf(f.seatSpot) : undefined;
     const ch = owner ? this.sim.chars.get(owner) : undefined;
-    if (!ch || ch.leaving) return 'off';
+    if (!ch || ch.leaving) {
+      if (room && room.light(this.sim.now) >= 0.3 && area.id.startsWith('grok:')) return area.id === 'grok:library' ? 'docs' : 'candles';
+      return 'off';
+    }
     const seated = ch.atSpot === f.seatSpot;
     if (ch.mode === 'wait') return 'alert';
     if (!seated) return 'idle';
     if (ch.mode === 'work') {
       const mode = screenModeFor(ch.info.activity?.kind);
-      if (area.id.startsWith('grok:') && !/grok:(news|library)/.test(area.id) && mode !== 'alert') return 'candles';
+      if (area.id.startsWith('grok:') && area.id !== 'grok:library' && mode !== 'alert') return 'candles';
       return mode;
     }
     // esperando um shell: terminal com a barra de progresso andando (o "filme" da pipoca)

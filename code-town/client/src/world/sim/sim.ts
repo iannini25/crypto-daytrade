@@ -5,7 +5,8 @@ import type { ArtModule, Dir, RoomTheme } from '../../art/api';
 import type { WorldOptions } from '../api';
 import { COL_W, COMPACT_DELAY_MS, DISMANTLE_DELAY_MS, FOOT_DX, FOOT_DY, MISSING_DEBOUNCE_MS, RUN_SPEED, TILE, WALK_SPEED } from '../constants';
 import { assembleBuilding, type BuildingLayout } from '../layout/building';
-import { CAFE_ID, LOUNGE_ID, RECEPTION_ID } from '../layout/core';
+import { LOUNGE_ID, RECEPTION_ID } from '../layout/core';
+import { layoutDeskRoom } from '../layout/desk-floor';
 import { columnsFor, inRect } from '../layout/geometry';
 import { layoutProjectRoom } from '../layout/room';
 import type { SpotDef, SpotKind } from '../layout/types';
@@ -64,7 +65,7 @@ const FALLBACK_THEME: RoomTheme = {
 const LOUNGE_SEATS: SpotKind[] = ['sofa', 'armchair', 'beanbag'];
 /** Descanso da mesa Grok Bot: só copa e lounge. */
 const REST_SEATS: SpotKind[] = ['sofa', 'armchair', 'beanbag', 'cafe_seat'];
-const REST_AREAS = new Set([LOUNGE_ID, CAFE_ID]);
+const REST_AREAS = new Set([LOUNGE_ID]);
 /** Agentes da mesa Grok Bot (fonte Supabase) descansam fora da sala de trabalho quando ociosos. */
 export function isRestingAway(info: { account: string }): boolean {
   return info.account === 'grok';
@@ -235,7 +236,7 @@ export class Sim {
     }
     // a primeira vaga livre do prédio (o slot do servidor só dá a ordem de chegada)
     const slot = this.freeSlot();
-    const layout = layoutProjectRoom({ id: r.id, slot, seed: r.seed }, theme);
+    const layout = (r.id.startsWith('grok:') ? layoutDeskRoom(r.id, r.seed, theme) : null) ?? layoutProjectRoom({ id: r.id, slot, seed: r.seed }, theme);
     const rs = new RoomState(r, theme, layout, first ? 'ready' : 'building', now, first, slot);
     this.rooms.set(r.id, rs);
     return rs;
@@ -505,6 +506,7 @@ export class Sim {
     this.layoutVersion++;
     this.finder.setGrid(building.grid);
     const lost = this.spots.setSpots(building.spots);
+    this.syncElevators();
     for (const { owner } of lost) {
       const ch = this.chars.get(owner);
       if (!ch) continue;
@@ -613,6 +615,8 @@ export class Sim {
    * vez, só sala pronta e com a sessão aberta; o prédio encolhe quando o endereço antigo é desmontado.
    */
   private compact(now: number): void {
+    // A planta da mesa é fixa: as salas não mudam de vaga.
+    if ([...this.rooms.values()].some((r) => r.id.startsWith('grok:'))) return;
     const free = this.freeSlot();
     let far: RoomState | null = null;
     for (const r of this.rooms.values()) {
@@ -1191,8 +1195,8 @@ export class Sim {
   }
 
   /**
-   * Descanso fora das salas de trabalho (mesa Grok Bot): sofá/poltrona/puff do lounge ou mesa da copa;
-   * parado há muito tempo, dorme. De vez em quando uma roda com quem também está à toa, ou o banheiro.
+   * Descanso da mesa: só o lounge, e só enquanto o agente está ocioso.
+   * Parado há muito tempo, dorme. De vez em quando uma roda com quem também está à toa.
    */
   private planRest(ch: Character, now: number): boolean {
     const rng = ch.rng;
@@ -1330,8 +1334,17 @@ export class Sim {
     return best;
   }
 
+  private syncElevators(): void {
+    const spots = this.spots.ofKind('elevator');
+    const same = spots.length === this.elevators.length && spots.every((s, i) => this.elevators[i].spotId === s.id);
+    if (same) return;
+    this.elevators.splice(0, this.elevators.length);
+    for (const s of spots) this.elevators.push(new Elevator(this.elevators.length, s.id));
+  }
+
   private lobbyTile(ch: Character): { x: number; y: number } {
-    const reception = this.building.core.find((a) => a.id === RECEPTION_ID)!;
+    const reception = this.building.core.find((a) => a.id === RECEPTION_ID) ?? this.building.core.find((a) => a.id === LOUNGE_ID);
+    if (!reception) return { x: 4, y: 4 };
     const r = reception.rect;
     for (let k = 0; k < 20; k++) {
       const x = r.x + 2 + Math.floor(ch.rng() * 12);

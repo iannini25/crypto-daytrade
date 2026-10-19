@@ -6,15 +6,16 @@ import { findAgent, type AgentConfig } from './agents';
 
 /** Setor fixo (mesa) de cada agente da mesa, pela tag atual. */
 export const DESK_ROOM: Record<string, string> = {
-  'Trader Crypto - Chefe': 'talk',
-  Chefe: 'talk',
+  'Trader Crypto - Chefe': 'chefe',
+  'Trader - Chefe': 'chefe',
+  Chefe: 'chefe',
   'Grok Bot': 'talk',
-  'PumpFun Analista': 'charts',
-  'Monitor Trending': 'charts',
-  'Caçador Memecoins': 'charts',
-  'Monitor X': 'news',
-  'Conferência de Dados': 'news',
-  'Radar X': 'news',
+  'PumpFun Analista': 'pumpfun',
+  'Monitor Trending': 'trending',
+  'Caçador Memecoins': 'cacador',
+  'Monitor X': 'monitor-x',
+  'Conferência de Dados': 'conferencia',
+  'Radar X': 'monitor-x',
   'Holders e Carteira': 'whales',
   'Risco Memecoins': 'risk',
   'Estatística Memecoins': 'stats',
@@ -34,6 +35,7 @@ export function deskOf(agent: AgentConfig): string {
  */
 const ALIASES: Array<[RegExp, string]> = [
   [/\bTrader Crypto - Chefe\b/, 'Trader Crypto - Chefe'],
+  [/\bTrader - Chefe\b/, 'Trader Crypto - Chefe'],
   [/\bChefe\b/, 'Trader Crypto - Chefe'],
   [/\bPumpFun Analista\b/, 'PumpFun Analista'],
   [/\bPumpFun\b/, 'PumpFun Analista'],

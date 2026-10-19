@@ -7,7 +7,6 @@ import { DEFAULT_WORLD_OPTIONS, type Selection, type SocialEvent, type SoundCue,
 import { loadWorldAssets, type WorldAssets } from './assets';
 import { Camera, overviewFrame } from './camera';
 import { createDebug, type WorldDebug } from './debug';
-import { BUILDING_H, COL_W } from './constants';
 import { inRect } from './layout/geometry';
 import { attachInput, type Hit } from './input';
 import { rebaseSnapshot } from './playback';
@@ -64,7 +63,10 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore): Worl
     updateBounds();
   };
 
-  const buildingRect = () => ({ x: 0, y: 0, w: sim.building.cols * COL_W * TILE, h: BUILDING_H * TILE });
+  const buildingRect = () => {
+    const r = sim.building.rect;
+    return { x: r.x * TILE, y: r.y * TILE, w: r.w * TILE, h: r.h * TILE };
+  };
 
   const updateBounds = () => {
     const b = buildingRect();

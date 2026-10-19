@@ -7,7 +7,7 @@
 // montagem de salas); por frame, um drawImage em 'multiply' e alguns sprites de brilho em cache.
 import { TILE, type ArtModule, type ScreenMode } from '../../art/api';
 import { mulberry32 } from '../../../../shared/hash';
-import { BUILDING_H, COL_W, CORRIDOR_H, CORRIDOR_Y } from '../constants';
+import { CORRIDOR_H, CORRIDOR_Y } from '../constants';
 import type { ExteriorLayout, SlotShell } from '../layout/exterior';
 import type { RoomState } from '../sim/room-state';
 import type { Sim } from '../sim/sim';
@@ -425,23 +425,25 @@ export class Lighting {
     halo: (img: HTMLCanvasElement, cx: number, cy: number, w: number, h: number, a: number) => void,
     warm: HTMLCanvasElement,
   ): void {
-    const bw = this.sim.building.cols * COL_W * TILE;
-    const bh = BUILDING_H * TILE;
+    const bw = this.sim.building.rect.w * TILE;
+    const bh = this.sim.building.rect.h * TILE;
     for (const [vis, l] of lit) {
       if (l < 0.3) continue;
       const r = vis.layout.rect;
       if (r.y === 0) {
         // janelas da parede norte -> gramado ao norte do prédio
         for (const w of vis.wallItems) if (w.kind === 'window') halo(warm, w.cx, -12, 58, 30, 0.55 * k * l);
-      } else if (vis.layout.kind !== 'corridor' && r.y + r.h >= BUILDING_H) {
+      } else if (vis.layout.kind !== 'corridor' && r.y + r.h >= this.sim.building.rect.h) {
         // salas ao sul: brilho suave sobre a cerca viva e a calçada
         for (const fx of [0.25, 0.75]) halo(warm, (r.x + r.w * fx) * TILE, bh + 16, 96, 30, 0.35 * k * l);
       }
     }
-    // fachadas de vidro do corredor (entrada a oeste e ponta leste)
-    const cy = (CORRIDOR_Y + CORRIDOR_H / 2) * TILE;
-    halo(warm, -20, cy, 56, 92, 0.6 * k);
-    halo(warm, bw + 20, cy, 56, 92, 0.45 * k);
+    if (!this.sim.building.desk) {
+      // fachadas de vidro do corredor (entrada a oeste e ponta leste)
+      const cy = (CORRIDOR_Y + CORRIDOR_H / 2) * TILE;
+      halo(warm, -20, cy, 56, 92, 0.6 * k);
+      halo(warm, bw + 20, cy, 56, 92, 0.45 * k);
+    }
     // janelas do corredor que dão para os pátios dos slots vazios
     for (const w of scene.shellWindows) {
       const slot = Number(w.areaId.slice(6));

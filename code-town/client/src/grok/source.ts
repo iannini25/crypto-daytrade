@@ -2,14 +2,15 @@
 // Ocupa o lugar do simulador do ?mock=1 (mesma interface: snapshot() e tick()), então o escritório,
 // a vida social, o feed e o "Meu dia" funcionam sem servidor — o site é estático na Vercel.
 //
-// Cada setor da mesa é uma sala. O agente fica 'working' na sua mesa por WORK_MS depois de cada evento
-// real; sem evento novo (ou com `descanso`) fica 'idle' e vai descansar na copa/lounge (sim.ts).
+// Cada agente da mesa tem a sua sala. Fica 'working' nela por WORK_MS depois de cada evento
+// real; sem evento novo (ou com `descanso`) fica 'idle' e vai ao lounge (sim.ts).
 // Conversa real (`conversa` com to_agent): os dois vão à mesma sala e o balão mostra a mensagem.
 import { createClient } from '@supabase/supabase-js';
 import type { Activity, ActivityKind, AgentInfo, FeedItem, Notice, OfficeSnapshot, RoomInfo } from '../../../shared/types';
 import { hash32 } from '../../../shared/hash';
 import { DESK_AGENTS, findAgent, helperFromEvent, nameTag, onCryptoDesk, type AgentConfig } from './agents';
 import { activityIcon, isErrorEvent, type AgentEvent } from './routing';
+import { DESK_SECTORS } from '../world/layout/desk-rooms';
 import { applyAlarm, type AlarmState } from './alarm';
 import { agentByTag, deskOf, read } from './interpret';
 
@@ -23,28 +24,24 @@ export interface GrokTickResult {
 export const WORK_MS = 20 * 60_000;
 const RECENT_MAX = 80;
 
-const SECTORS: Array<{ id: string; name: string }> = [
-  { id: 'charts', name: 'Painel de Análise · pump.fun' },
-  { id: 'talk', name: 'Sala de Reunião · Core' },
-  { id: 'news', name: 'Monitor X' },
-  { id: 'library', name: 'Sala de Estudos' },
-  { id: 'whales', name: 'Holders e Carteira' },
-  { id: 'stats', name: 'Estatística Memecoins' },
-  { id: 'risk', name: 'Risco Memecoins' },
-];
+const SECTORS = DESK_SECTORS;
 /** Tempo que o agente passa na sala do colega (ou no Core) depois de uma conversa registrada. */
 export const VISIT_MS = 3 * 60_000;
 /** Destinatários que são o canal da mesa (vão à Sala de Reunião). */
 const GROUP_TARGET = /^(core|mesa|todos|mesa cripto|risco\s*&\s*estudo|grupo|canal)\b/i;
 /** `sala` livre do agente → setor. */
 const ROOM_ALIASES: Array<[RegExp, string]> = [
-  [/(charts?|painel|an[aá]lise|gr[aá]fico)/i, 'charts'],
+  [/(charts?|painel|an[aá]lise|gr[aá]fico|pump)/i, 'pumpfun'],
   [/(talk|reuni|core|mesa)/i, 'talk'],
-  [/(news|reda|not[ií]cia|macro)/i, 'news'],
+  [/(confer|macro)/i, 'conferencia'],
+  [/(news|reda|not[ií]cia|monitor x)/i, 'monitor-x'],
   [/(library|estud|biblio)/i, 'library'],
-  [/(whales?|on-?chain|baleia)/i, 'whales'],
+  [/(whales?|on-?chain|baleia|holder)/i, 'whales'],
   [/(stats?|estat|backtest)/i, 'stats'],
   [/(risk|risco)/i, 'risk'],
+  [/(chefe|boss)/i, 'chefe'],
+  [/(trending|rastread)/i, 'trending'],
+  [/(ca[cç]ador)/i, 'cacador'],
 ];
 export function sectorOf(room: string | null | undefined): string | undefined {
   const r = (room ?? '').trim();
