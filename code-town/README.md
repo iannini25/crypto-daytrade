@@ -14,22 +14,24 @@ A* walker are adapted from [Habblaud](https://github.com/marmottajr/habblaud)
 
 ## Rooms
 
-A hallway joins the rooms. Each door has a name plate.
+The Chefe's office sits in the center. Every other desk agent has a room around it, with doors between neighbors. There is no central hallway, reception, restroom, or café. Idle agents sit in the Lounge; a live event sends them to their own room (or to Sala de Reunião · Core when the note is a meeting).
 
-| Room | Who ends up there |
+| Room | Who works there |
 | --- | --- |
-| Painel de Análise · pump.fun | `scan`, charts (Monitor Trending, Caçador Memecoins, PumpFun Analista) |
-| Monitor X | `noticias`, `macro`, Radar X, Conferência de Dados |
+| Trader Crypto - Chefe | the Chefe, at the only desk. One sofa, charts and plants around it |
+| PumpFun Analista | pump.fun reads |
+| Monitor X | X mentions. Radar X shares this room |
+| Monitor Trending | trending Solana / pump.fun |
+| Caçador Memecoins | new-mint reads |
 | Holders e Carteira | holders and wallet flow |
-| Risco Memecoins | `risco`, `veto` (red light when the veto fails) |
-| Mesa de conversa | group chat / `conversa` / router |
-| Sala de código | `codigo`, automation, scripts |
-| Apresentação | `apresentacao`, metrics (Trader Crypto - Chefe, Estatística Memecoins) |
-| Biblioteca | `estudo` (Estudante Memecoins) |
-| Copa | idle longer than 30 minutes |
-| Outros | Leads, Whatsapp, IGORMARCHETTI |
+| Risco Memecoins | `risco`, `veto` |
+| Estatística Memecoins | stats |
+| Sala de Estudos | Estudante Memecoins |
+| Conferência de Dados | public-number checks |
+| Sala de Reunião · Core | group chat / `conversa`. Grok Bot works here |
+| Lounge | anyone idle |
 
-Names already stored in `agent_events` keep working. `agents.json` lists `aliases` for the previous roster (`PumpFun`, `Notícias`, `Rastreador`, `Caçador`, `Baleias`, `Risco`, `Estatística`, `Estudante`, `Macro Bolsas`). The Chefe stays **Trader Crypto - Chefe**.
+Names already stored in `agent_events` keep working. `agents.json` lists `aliases` for the previous roster (`PumpFun`, `Notícias`, `Rastreador`, `Caçador`, `Baleias`, `Risco`, `Estatística`, `Estudante`, `Macro Bolsas`). The Chefe stays **Trader Crypto - Chefe**, and **Trader - Chefe** maps to the same agent.
 
 ## Read-only market panels
 

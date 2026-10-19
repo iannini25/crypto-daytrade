@@ -29,9 +29,9 @@ export interface SlotShell {
   props: ExteriorProp[];
 }
 
-export function layoutExterior(cols: number): ExteriorLayout {
+export function layoutExterior(cols: number, buildingH = BUILDING_H): ExteriorLayout {
   const w = cols * COL_W;
-  const bounds: TileRect = { x: -EXT_WEST, y: -EXT_NORTH, w: w + EXT_WEST + EXT_EAST, h: BUILDING_H + EXT_NORTH + EXT_SOUTH };
+  const bounds: TileRect = { x: -EXT_WEST, y: -EXT_NORTH, w: w + EXT_WEST + EXT_EAST, h: buildingH + EXT_NORTH + EXT_SOUTH };
   const px = (t: number) => t * TILE;
   const floors: FloorPatch[] = [];
   const props: ExteriorProp[] = [];
@@ -39,13 +39,14 @@ export function layoutExterior(cols: number): ExteriorLayout {
 
   floors.push({ kind: 'grass', x: px(bounds.x), y: px(bounds.y), w: px(bounds.w), h: px(bounds.h), seed: 11 });
   // calçada em volta do prédio
-  const south = BUILDING_H;
+  const south = buildingH;
+  const entranceY = buildingH === BUILDING_H ? CORRIDOR_Y : Math.max(0, buildingH - 10);
   floors.push({ kind: 'sidewalk', x: px(bounds.x), y: px(south + 2), w: px(bounds.w), h: px(2), seed: 12 });
   floors.push({ kind: 'street', x: px(bounds.x), y: px(south + 4), w: px(bounds.w), h: px(5), seed: 13 });
   floors.push({ kind: 'sidewalk', x: px(bounds.x), y: px(south + 9), w: px(bounds.w), h: px(2), seed: 14 });
   // caminho de pedra até a calçada, na frente da recepção
-  floors.push({ kind: 'sidewalk', x: px(-3), y: px(CORRIDOR_Y), w: px(3), h: px(5), seed: 15 });
-  floors.push({ kind: 'sidewalk', x: px(-3), y: px(CORRIDOR_Y + 5), w: px(2), h: px(south + 2 - CORRIDOR_Y - 5), seed: 16 });
+  floors.push({ kind: 'sidewalk', x: px(-3), y: px(entranceY), w: px(3), h: px(5), seed: 15 });
+  floors.push({ kind: 'sidewalk', x: px(-3), y: px(entranceY + 5), w: px(2), h: px(Math.max(2, south + 2 - entranceY - 5)), seed: 16 });
 
   // árvores ao norte (fileira com variação) e a oeste/leste
   for (let x = bounds.x + 1; x < bounds.x + bounds.w - 1; x += 4 + Math.floor(rng() * 3)) {
@@ -65,8 +66,8 @@ export function layoutExterior(cols: number): ExteriorLayout {
   for (const side of [-1, 1]) {
     for (const band of [0, 7, 13]) {
       const baseX = side < 0 ? -6 - band : w + 4 + band;
-      for (let y = 1; y < BUILDING_H; y += 3 + Math.floor(rng() * 3)) {
-        if (side < 0 && band === 0 && y >= CORRIDOR_Y - 1 && y <= south + 1) continue;
+      for (let y = 1; y < buildingH; y += 3 + Math.floor(rng() * 3)) {
+        if (side < 0 && band === 0 && y >= entranceY - 1 && y <= entranceY + 6) continue;
         props.push({ kind: rng() < 0.3 ? 'pine' : 'tree', x: px(baseX + Math.floor(rng() * 5)), y: px(y + 1), seed: Math.floor(rng() * 1e9) });
         if (band === 0 && rng() < 0.5) props.push({ kind: 'bush', x: px(side < 0 ? -2 : w + 1), y: px(y + 2), seed: Math.floor(rng() * 1e9) });
       }
@@ -89,9 +90,9 @@ export function layoutExterior(cols: number): ExteriorLayout {
       if (rng() < 0.3) props.push({ kind: 'bush', x: px(x + 3), y: px(south + row + 1), seed: Math.floor(rng() * 1e9) });
     }
   }
-  props.push({ kind: 'bench', x: px(-4), y: px(CORRIDOR_Y + 3) + 6, seed: 1 });
+  props.push({ kind: 'bench', x: px(-4), y: px(entranceY + 3) + 6, seed: 1 });
   // totem com a marca na entrada principal (oeste)
-  props.push({ kind: 'totem', x: px(-3) + 6, y: px(CORRIDOR_Y + 1), seed: 2 });
+  props.push({ kind: 'totem', x: px(-3) + 6, y: px(entranceY + 1), seed: 2 });
 
   const streetY = px(south + 4);
   const streetH = px(5);

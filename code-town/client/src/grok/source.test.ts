@@ -31,7 +31,7 @@ test('conversa explícita: os dois se encontram e o balão mostra a mensagem', (
   assert.match(c.activity!.text, /^→ Risco Memecoins: ETH/);
   assert.match(r.activity!.text, /^← Caçador Memecoins: ETH/);
   s.tick(T0 + VISIT_MS + 1000);
-  assert.equal(info(s, 'Caçador', T0 + VISIT_MS + 1000).roomId, 'grok:charts');
+  assert.equal(info(s, 'Caçador', T0 + VISIT_MS + 1000).roomId, 'grok:cacador');
 });
 
 test('conversa pro Core vai à Sala de Reunião', () => {
@@ -81,6 +81,29 @@ test('FAKE ALARM começa apagado e acende com a linha', () => {
   s.ingest(ev('Chefe', 'fake_alarm', 'FAKE ALARM', T0), true);
   assert.equal(s.alarm.active, true);
   assert.match(s.alarm.text, /FAKE ALARM/);
+});
+
+test('Trader - Chefe e Trader Crypto - Chefe são o mesmo agente', () => {
+  const full = findAgent('Trader Crypto - Chefe');
+  const short = findAgent('Trader - Chefe');
+  assert.equal(short?.id, full?.id);
+  assert.equal(full?.tag, 'Trader Crypto - Chefe');
+  const s = new GrokSource(T0);
+  s.ingest(
+    {
+      id: 'short-chefe',
+      agent_id: 'legacy-chefe',
+      agent_name: 'Trader - Chefe',
+      kind: 'reuniao',
+      summary: 'Parecer da rodada na mesa',
+      status: 'ok',
+      created_at: new Date(T0).toISOString(),
+    },
+    true,
+  );
+  s.tick(T0 + 10);
+  assert.equal(info(s, 'Chefe', T0 + 10).roomId, 'grok:chefe');
+  assert.equal(info(s, 'Chefe', T0 + 10).status, 'working');
 });
 
 test('achado guarda o texto completo no detalhe', () => {
