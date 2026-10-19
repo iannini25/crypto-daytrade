@@ -10,6 +10,7 @@ import type { Activity, ActivityKind, AgentInfo, FeedItem, Notice, OfficeSnapsho
 import { hash32 } from '../../../shared/hash';
 import { DESK_AGENTS, findAgent, helperFromEvent, nameTag, onCryptoDesk, type AgentConfig } from './agents';
 import { activityIcon, isErrorEvent, type AgentEvent } from './routing';
+import { applyAlarm, type AlarmState } from './alarm';
 import { agentByTag, deskOf, read } from './interpret';
 
 export interface GrokTickResult {
@@ -23,13 +24,13 @@ export const WORK_MS = 20 * 60_000;
 const RECENT_MAX = 80;
 
 const SECTORS: Array<{ id: string; name: string }> = [
-  { id: 'charts', name: 'Painel de Análise' },
+  { id: 'charts', name: 'Painel de Análise · pump.fun' },
   { id: 'talk', name: 'Sala de Reunião · Core' },
-  { id: 'news', name: 'Redação · Notícias e Macro' },
+  { id: 'news', name: 'Monitor X' },
   { id: 'library', name: 'Sala de Estudos' },
-  { id: 'whales', name: 'On-chain · Baleias' },
-  { id: 'stats', name: 'Estatística · Backtests' },
-  { id: 'risk', name: 'Risco' },
+  { id: 'whales', name: 'Holders e Carteira' },
+  { id: 'stats', name: 'Estatística Memecoins' },
+  { id: 'risk', name: 'Risco Memecoins' },
 ];
 /** Tempo que o agente passa na sala do colega (ou no Core) depois de uma conversa registrada. */
 export const VISIT_MS = 3 * 60_000;
@@ -101,6 +102,8 @@ export class GrokSource {
   private demoTimer: ReturnType<typeof setInterval> | null = null;
   status = 'conectando ao Supabase…';
   live = false;
+  /** Banner FAKE ALARM. Começa apagado; só um evento (ou a flag da página) acende. */
+  alarm: AlarmState = { active: false, text: '' };
 
   constructor(now = Date.now()) {
     this.startedAt = now;
@@ -207,6 +210,11 @@ export class GrokSource {
   ingest(ev: AgentEvent, fresh: boolean): void {
     if (!ev?.id || this.seen.has(ev.id)) return;
     this.seen.add(ev.id);
+    const nextAlarm = applyAlarm(this.alarm, ev);
+    if (nextAlarm.active !== this.alarm.active || nextAlarm.text !== this.alarm.text) {
+      this.alarm = nextAlarm;
+      this.dirty = true;
+    }
     const cfg = this.resolve(ev);
     if (!cfg || !onCryptoDesk(cfg)) return;
     const at = Date.parse(ev.created_at) || Date.now();
@@ -353,17 +361,18 @@ export class GrokSource {
 type DemoSpec = { agent: number | string; kind: string; summary: string; status?: string };
 
 const DEMO: DemoSpec[] = [
-  { agent: 1, kind: 'scan', summary: 'BTC 15m: range apertando no VWAP' },
-  { agent: 2, kind: 'setup', summary: 'Caçando rompimento ETH acima da máxima de ontem' },
-  { agent: 3, kind: 'noticias', summary: 'Headline: ETF flow positivo nas últimas 4h' },
-  { agent: 4, kind: 'baleia', summary: 'Carteira grande moveu SOL para a exchange' },
-  { agent: 5, kind: 'veto', summary: 'Não. Tamanho estoura o limite da mesa.', status: 'failed' },
-  { agent: 6, kind: 'apresentacao', summary: 'Métricas de 30d no projetor' },
-  { agent: 7, kind: 'estudo', summary: 'Lendo o paper de funding e basis' },
-  { agent: 8, kind: 'macro', summary: 'NY abre em alta, DXY caindo' },
-  { agent: 0, kind: 'reuniao', summary: 'Reunião: prioridade BTC e ETH hoje' },
-  { agent: 'radar-x', kind: 'radar', summary: 'Radar X varreu as manchetes da última hora' },
-  { agent: 9, kind: 'roteador', summary: 'Grok Bot distribuiu as tarefas da rodada' },
+  { agent: 1, kind: 'scan', summary: 'Trending Solana: mints pump.fun com volume subindo. Só leitura.' },
+  { agent: 2, kind: 'setup', summary: 'Lista de memecoins novas para a mesa ler. Sem ordem.' },
+  { agent: 3, kind: 'noticias', summary: 'Monitor X: menções públicas a $DACITY na última hora' },
+  { agent: 4, kind: 'baleia', summary: 'Holders: concentração do topo mudou no mint acompanhado' },
+  { agent: 5, kind: 'veto', summary: 'Não. Liquidez fina demais para um parecer positivo.', status: 'failed' },
+  { agent: 6, kind: 'apresentacao', summary: 'Variação de 24h dos mints acompanhados no projetor' },
+  { agent: 7, kind: 'estudo', summary: 'Lendo o relatório público do RugCheck' },
+  { agent: 8, kind: 'macro', summary: 'Conferência: os números do DexScreener batem com o painel' },
+  { agent: 0, kind: 'reuniao', summary: 'Reunião: a mesa é só parecer. Ninguém assina ordem.' },
+  { agent: 'radar-x', kind: 'radar', summary: 'Varreu posts públicos no X sobre pump.fun' },
+  { agent: 9, kind: 'roteador', summary: 'Grok Bot distribuiu a leitura da rodada' },
+  { agent: 'PumpFun', kind: 'scan', summary: '$DACITY no painel: preço, cap, liquidez e volume de 24h' },
 ];
 
 function demoEvent(d: DemoSpec, at: number, id: string): AgentEvent {

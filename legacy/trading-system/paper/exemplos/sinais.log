@@ -1,0 +1,29 @@
+=== Ciclo paper trading — 06/10/2026 08:38 BRT ===
+SEM SINAL.
+Por par:
+  • BTCUSDT [preço 86.315,40]: regime de ALTA, mas entrada BLOQUEADA: janela 10:00–12:30 BRT (06/10/2026 08:38 BRT)
+  • ETHUSDT [preço 2.715,91]: regime de ALTA, mas entrada BLOQUEADA: janela 10:00–12:30 BRT (06/10/2026 08:38 BRT)
+  • SOLUSDT [preço 120,26]: regime de ALTA, mas entrada BLOQUEADA: janela 10:00–12:30 BRT (06/10/2026 08:38 BRT); mínimo de ordem 5 USDT e risco ≤ 3% (posição mínima de 6,00 USDT com stop a 11,7% arriscaria 3,7% do capital (> teto de 3%))
+  (Fora da janela 10:00–12:30 BRT: entradas e saídas por regime só acontecem dentro dela; o stop é checado em todo ciclo.)
+Conta simulada: patrimônio 19,7446 USDT ≈ R$ 99,56 (0,00% desde o início; USDTBRL 5,0424 — Bybit USDTBRL ao vivo) | caixa 19,7446 USDT | posições 0 | kill switch inativo (gatilho 17,77 USDT)
+------------------------------------------------------------
+=== Ciclo paper trading — 06/10/2026 10:15 BRT ===
+📈 SINAL (PAPER) — COMPRA BTCUSDT (spot, long)
+Data/hora: 06/10/2026 10:15 BRT | ID P0001
+Estratégia: tendência diária SMA100 + stop 3×ATR14 (evidência 🟢 trend following; backtest próprio positivo após taxas, ver backtests/RESULTADOS.md)
+Entrada: ordem LIMITE ~86.098,90 USDT (simulada a 86.141,95 c/ slippage)
+Stop: 79.551,53 (-7,7%) → ordem SL na corretora, válida 24h
+Alvo: SEM alvo fixo — sai quando o diário fechar abaixo da SMA100 (hoje 71.563,64). Referência 3R = 105.913,21
+Tamanho: 6,00 USDT (0.00006958 BTC) = 30,4% do patrimônio
+Risco até o stop (c/ taxas e slippage): 0,4770 USDT ≈ R$ 2,37 (2,4% do capital)
+R:R de referência após taxas: 2,87 | custo ida+volta 0,30% = 0,039R
+Motivo: fechamento diário 85.765,70 > SMA100 71.563,64 (19,8%); ATR14 diário 2.196,81
+Obs.: tamanho ideal p/ risco de 1% seria 2,48 USDT, abaixo do mínimo prático de 6,00 USDT (mínimo da Bybit 5 USDT + 20% de folga) → usando o mínimo
+Checklist: [✓] dado diário fresco [✓] instrumento negociando [✓] janela 10:00–12:30 BRT [✓] sem CPI/FOMC/payroll hoje [✓] kill switch inativo [✓] perdas dia/semana no limite [✓] sem stop neste par hoje [✓] vaga de posição [✓] spread ≤ 0,10% [✓] mínimo de ordem 5 USDT e risco ≤ 3% [✓] custo ≤ 0,10R [✓] R:R de referência após taxas ≥ 2,0
+⚠️ PAPER TRADING — nenhuma ordem real foi enviada.
+Por par:
+  • BTCUSDT [preço 86.097,00]: ENTRADA simulada P0001
+  • ETHUSDT [preço 2.713,20]: regime de ALTA, mas entrada BLOQUEADA: vaga de posição (1/1 abertas)
+  • SOLUSDT [preço 120,37]: regime de ALTA, mas entrada BLOQUEADA: vaga de posição (1/1 abertas); mínimo de ordem 5 USDT e risco ≤ 3% (posição mínima de 6,00 USDT com stop a 11,7% arriscaria 3,7% do capital (> teto de 3%))
+Conta simulada: patrimônio 19,7296 USDT ≈ R$ 97,99 (-0,08% desde o início; USDTBRL 4,9668 — Bybit USDTBRL ao vivo) | caixa 13,7446 USDT | posições 1 | kill switch inativo (gatilho 17,77 USDT)
+------------------------------------------------------------

@@ -6,7 +6,7 @@ const ag = (t: string) => agentByTag(t)!;
 
 test('pedido explícito leva o agente até o colega', () => {
   const r = read(ag('Risco'), 'revisao', 'Pedi à Estatística: na bateria 15m Coinbase, saída no stop usa o custo do GATE');
-  assert.deepEqual(r.interaction, { peer: 'Estatística', dir: 'out' });
+  assert.deepEqual(r.interaction, { peer: 'Estatística Memecoins', dir: 'out' });
 });
 
 test('colega citado antes do verbo não é destino (Macro só leu o Caçador)', () => {
@@ -28,6 +28,14 @@ test('"risco" minúsculo não é o agente Risco', () => {
 test('tarefas saem das frases do próprio resumo', () => {
   const r = read(ag('Estatística'), 'estudo', 'Sombra do swing D no ar (sombra_swing_d.py). Na fila: teste de horário de entrada do swing D.');
   assert.deepEqual(r.tasks.map((t) => t.status), ['completed', 'pending']);
+});
+
+test('nomes antigos do Supabase apontam para o colega novo', () => {
+  const r = read(ag('PumpFun'), 'achado', 'Pedi à Rastreador: mint novo no trending, sem ordem');
+  assert.equal(r.interaction?.peer, 'Monitor Trending');
+  assert.equal(ag('Notícias').name, 'Monitor X');
+  assert.equal(ag('Macro Bolsas').tag, 'Conferência de Dados');
+  assert.equal(ag('Baleias').name, 'Holders e Carteira');
 });
 
 test('veto e aprovação viram decisão', () => {

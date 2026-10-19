@@ -46,11 +46,22 @@ def load_agents() -> list[dict]:
     return json.loads(AGENTS_PATH.read_text(encoding="utf-8"))
 
 
+def agent_labels(agent: dict) -> list[str]:
+    labels = [agent.get("name") or "", agent.get("tag") or "", agent.get("id") or ""]
+    aliases = agent.get("aliases") or []
+    if isinstance(aliases, list):
+        labels.extend(str(alias) for alias in aliases)
+    return [str(label).strip().lower() for label in labels if str(label).strip()]
+
+
 def match_agent(agents: list[dict], name: str) -> tuple[str, str]:
     q = (name or "").strip().lower()
     for agent in agents:
-        label = agent["name"].lower()
-        if q == label or q == agent["id"].lower() or q in label or label in q:
+        if q and q in agent_labels(agent):
+            return agent["id"], agent["name"]
+    for agent in agents:
+        label = str(agent.get("name") or "").lower()
+        if q and label and (q in label or label in q):
             return agent["id"], agent["name"]
     slug = "-".join(q.split()) or "unknown"
     return slug, name or slug

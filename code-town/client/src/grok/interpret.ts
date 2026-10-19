@@ -2,21 +2,23 @@
 // com quem falou (e em que direção), se postou no Core, tarefas iniciadas/na fila/concluídas e decisões.
 // Nada aqui inventa movimento: sem menção explícita, o agente fica na própria mesa.
 import type { TaskStatus } from '../../../shared/types';
-import { AGENTS, type AgentConfig } from './agents';
+import { findAgent, type AgentConfig } from './agents';
 
-/** Setor fixo (mesa) de cada agente da mesa, pela tag. */
+/** Setor fixo (mesa) de cada agente da mesa, pela tag atual. */
 export const DESK_ROOM: Record<string, string> = {
+  'Trader Crypto - Chefe': 'talk',
   Chefe: 'talk',
   'Grok Bot': 'talk',
-  Rastreador: 'charts',
-  'Caçador': 'charts',
-  'Notícias': 'news',
-  Macro: 'news',
+  'PumpFun Analista': 'charts',
+  'Monitor Trending': 'charts',
+  'Caçador Memecoins': 'charts',
+  'Monitor X': 'news',
+  'Conferência de Dados': 'news',
   'Radar X': 'news',
-  Baleias: 'whales',
-  Risco: 'risk',
-  'Estatística': 'stats',
-  Estudante: 'library',
+  'Holders e Carteira': 'whales',
+  'Risco Memecoins': 'risk',
+  'Estatística Memecoins': 'stats',
+  'Estudante Memecoins': 'library',
 };
 
 export function deskOf(agent: AgentConfig): string {
@@ -26,17 +28,32 @@ export function deskOf(agent: AgentConfig): string {
   return 'talk';
 }
 
-/** Como cada colega aparece escrito nos resumos (com e sem acento). Sensível a maiúscula: "risco" ≠ "Risco". */
+/**
+ * Como cada colega aparece escrito nos resumos. O nome antigo do Supabase aponta para a tag nova.
+ * Sensível a maiúscula: "risco" ≠ "Risco".
+ */
 const ALIASES: Array<[RegExp, string]> = [
-  [/\bChefe\b/, 'Chefe'],
-  [/\bRastreador\b/, 'Rastreador'],
-  [/\bCa[cç]ador\b/, 'Caçador'],
-  [/\bNot[ií]cias\b/, 'Notícias'],
-  [/\bMacro\b/, 'Macro'],
-  [/\bBaleias\b/, 'Baleias'],
-  [/\bRisco\b/, 'Risco'],
-  [/\bEstat[ií]stica\b/, 'Estatística'],
-  [/\bEstudante\b/, 'Estudante'],
+  [/\bTrader Crypto - Chefe\b/, 'Trader Crypto - Chefe'],
+  [/\bChefe\b/, 'Trader Crypto - Chefe'],
+  [/\bPumpFun Analista\b/, 'PumpFun Analista'],
+  [/\bPumpFun\b/, 'PumpFun Analista'],
+  [/\bMonitor Trending\b/, 'Monitor Trending'],
+  [/\bRastreador\b/, 'Monitor Trending'],
+  [/\bCa[cç]ador Memecoins\b/, 'Caçador Memecoins'],
+  [/\bCa[cç]ador\b/, 'Caçador Memecoins'],
+  [/\bMonitor X\b/, 'Monitor X'],
+  [/\bNot[ií]cias\b/, 'Monitor X'],
+  [/\bConfer[eê]ncia de Dados\b/, 'Conferência de Dados'],
+  [/\bMacro Bolsas\b/, 'Conferência de Dados'],
+  [/\bMacro\b/, 'Conferência de Dados'],
+  [/\bHolders e Carteira\b/, 'Holders e Carteira'],
+  [/\bBaleias\b/, 'Holders e Carteira'],
+  [/\bRisco Memecoins\b/, 'Risco Memecoins'],
+  [/\bRisco\b/, 'Risco Memecoins'],
+  [/\bEstat[ií]stica Memecoins\b/, 'Estatística Memecoins'],
+  [/\bEstat[ií]stica\b/, 'Estatística Memecoins'],
+  [/\bEstudante Memecoins\b/, 'Estudante Memecoins'],
+  [/\bEstudante\b/, 'Estudante Memecoins'],
   [/\bGrok\b/, 'Grok Bot'],
 ];
 
@@ -69,13 +86,21 @@ function selfKey(agent: AgentConfig): string {
 }
 
 export function peersIn(text: string, self: string): string[] {
-  const hits: Array<[number, string]> = [];
+  const hits: Array<[number, number, string]> = [];
   for (const [re, tag] of ALIASES) {
     if (tag === self) continue;
-    const m = re.exec(text);
-    if (m) hits.push([m.index, tag]);
+    const global = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
+    for (const m of text.matchAll(global)) hits.push([m.index ?? 0, m[0].length, tag]);
   }
-  return hits.sort((a, b) => a[0] - b[0]).map(([, t]) => t);
+  hits.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+  const out: string[] = [];
+  let cursor = -1;
+  for (const [index, length, tag] of hits) {
+    if (index < cursor) continue;
+    cursor = index + length;
+    if (!out.includes(tag)) out.push(tag);
+  }
+  return out;
 }
 
 function sentences(text: string): string[] {
@@ -128,5 +153,5 @@ export function read(agent: AgentConfig, kind: string, summary: string): Reading
 }
 
 export function agentByTag(tag: string): AgentConfig | undefined {
-  return AGENTS.find((a) => (a.tag || a.name) === tag);
+  return findAgent(tag);
 }
