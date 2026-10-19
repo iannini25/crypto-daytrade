@@ -5,7 +5,7 @@ import { BLOCKED, FREE, SEAT, WalkGrid } from '../path/grid';
 import { furnitureBlocks, furnitureIsSeat } from './builder';
 import { layoutCafe, layoutLounge, layoutReception, layoutRestroom } from './core';
 import { layoutCorridor } from './corridor';
-import { DESK_COLS, emptyCorridor, FLOOR_H, FLOOR_W, layoutDeskLounge } from './desk-floor';
+import { DESK_COLS, FLOOR_H, FLOOR_W, layoutChefeRing, layoutDeskLounge } from './desk-floor';
 import { buildingRect } from './geometry';
 import type { AreaLayout, SpotDef, TileRect } from './types';
 
@@ -17,7 +17,7 @@ export interface BuildingLayout {
   rooms: AreaLayout[];
   grid: WalkGrid;
   spots: SpotDef[];
-  /** Planta da mesa: Chefe no centro, sem corredor nem núcleo antigo. */
+  /** Planta da mesa: Chefe no centro, corredor em anel, sem o núcleo antigo. */
   desk?: boolean;
 }
 
@@ -68,12 +68,12 @@ export function assembleBuilding(cols: number, rooms: readonly AreaLayout[], ver
   return { cols, rect: buildingRect(cols), core, corridor, rooms: [...rooms], grid, spots };
 }
 
-/** Lounge + salas já posicionadas. A grade cobre a planta inteira, não o prédio antigo. */
+/** Lounge + anel em volta do Chefe + salas. A grade cobre a planta inteira, não o prédio antigo. */
 function assembleDeskFloor(rooms: readonly AreaLayout[], version: number): BuildingLayout {
   const lounge = layoutDeskLounge();
-  const corridor = emptyCorridor();
+  const corridor = layoutChefeRing();
   const core = [lounge];
-  const all = [...core, ...rooms];
+  const all = [...core, corridor, ...rooms];
   const grid = buildWalkGridSized(FLOOR_W, FLOOR_H, all, version);
   const spots: SpotDef[] = [];
   for (const a of all) spots.push(...a.spots);

@@ -134,6 +134,19 @@ export function chooseSeat(spots: readonly SpotDef[], isFree: (id: string) => bo
   return null;
 }
 
+/** Fração do tempo ocioso em que o Chefe fica no sofá da própria sala (o resto, no lounge). */
+export const CHEFE_OFFICE_REST = 0.9;
+
+/** O Chefe é quem tem esse nome, mesmo quando a visita muda a sala atual. */
+export function isChefeAgent(info: { name: string }): boolean {
+  return /chefe/i.test(info.name);
+}
+
+/** Novo sorteio a cada entrada em ocioso (e de tempos em tempos): 90% sofá, 10% lounge. */
+export function rollChefeRest(rng: () => number): 'office' | 'lounge' {
+  return rng() < CHEFE_OFFICE_REST ? 'office' : 'lounge';
+}
+
 /** Corre para a mesa se estiver longe (ou sempre que precisa do usuário). Esperando um shell: só se estiver muito longe. */
 export function shouldRun(pathTiles: number, mode: Mode): boolean {
   if (mode === 'wait') return pathTiles > 2;

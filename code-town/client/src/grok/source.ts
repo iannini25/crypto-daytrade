@@ -3,7 +3,8 @@
 // a vida social, o feed e o "Meu dia" funcionam sem servidor — o site é estático na Vercel.
 //
 // Cada agente da mesa tem a sua sala. Fica 'working' nela por WORK_MS depois de cada evento
-// real; sem evento novo (ou com `descanso`) fica 'idle' e vai ao lounge (sim.ts).
+// real; sem evento novo (ou com `descanso`) fica 'idle'. O Chefe descansa no sofá
+// da própria sala na maior parte do tempo; os outros vão ao lounge (sim.ts).
 // Conversa real (`conversa` com to_agent): os dois vão à mesma sala e o balão mostra a mensagem.
 import { createClient } from '@supabase/supabase-js';
 import type { Activity, ActivityKind, AgentInfo, FeedItem, Notice, OfficeSnapshot, RoomInfo } from '../../../shared/types';
