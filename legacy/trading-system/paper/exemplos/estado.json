@@ -1,0 +1,37 @@
+{
+  "criado_em_brt": "06/10/2026 08:38 BRT",
+  "capital_inicial_brl": 100.0,
+  "usdtbrl_inicial": 5.0424,
+  "capital_inicial_usdt": 19.744566,
+  "caixa_usdt": 13.744566079644617,
+  "posicoes": {
+    "BTCUSDT": {
+      "id": "P0001",
+      "qty": 6.958282275094253e-05,
+      "entrada": 86141.94945,
+      "stop": 79551.53063467,
+      "nocional_usdt": 6.0,
+      "taxa_entrada_usdt": 0.006,
+      "risco_usdt": 0.47703898326467825,
+      "aberta_em_brt": "06/10/2026 10:15 BRT",
+      "aberta_em_utc": "2026-10-06 13:15:55.023070+00:00",
+      "ultimo_check_utc": "2026-10-06 13:15:55.023070+00:00",
+      "motivo": "fechamento diário 85.765,70 > SMA100 71.563,64 (19,8%); ATR14 diário 2.196,81"
+    }
+  },
+  "kill_switch": {
+    "ativo": false,
+    "motivo": null,
+    "em_brt": null
+  },
+  "ref_dia": {
+    "data": "2026-10-06",
+    "patrimonio_usdt": 19.744566079644617
+  },
+  "ref_semana": {
+    "semana": "2026-W41",
+    "patrimonio_usdt": 19.744566079644617
+  },
+  "seq_trade": 1,
+  "ultima_execucao_brt": "06/10/2026 10:15 BRT"
+}

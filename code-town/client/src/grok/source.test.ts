@@ -28,8 +28,8 @@ test('conversa explícita: os dois se encontram e o balão mostra a mensagem', (
   assert.equal(r.roomId, 'grok:risk');
   assert.equal(c.status, 'working');
   assert.equal(r.status, 'working');
-  assert.match(c.activity!.text, /^→ Risco: ETH/);
-  assert.match(r.activity!.text, /^← Caçador: ETH/);
+  assert.match(c.activity!.text, /^→ Risco Memecoins: ETH/);
+  assert.match(r.activity!.text, /^← Caçador Memecoins: ETH/);
   s.tick(T0 + VISIT_MS + 1000);
   assert.equal(info(s, 'Caçador', T0 + VISIT_MS + 1000).roomId, 'grok:charts');
 });
@@ -53,6 +53,34 @@ test('sem evento por WORK_MS ou com descanso: ocioso', () => {
   s.ingest(ev('Estudante', 'descanso', 'Rodada encerrada', T0 + 5000), true);
   s.tick(T0 + 6000);
   assert.equal(info(s, 'Estudante', T0 + 6000).status, 'idle');
+});
+
+test('PumpFun antigo no Supabase aparece como PumpFun Analista', () => {
+  const s = new GrokSource(T0);
+  s.ingest(
+    {
+      id: 'old-pump',
+      agent_id: 'legacy-pumpfun',
+      agent_name: 'PumpFun',
+      kind: 'achado',
+      summary: 'leitura do mint',
+      status: 'ok',
+      created_at: new Date(T0).toISOString(),
+    },
+    true,
+  );
+  s.tick(T0 + 10);
+  const a = info(s, 'PumpFun', T0 + 10);
+  assert.equal(a.name, 'PumpFun Analista');
+  assert.equal(a.status, 'working');
+});
+
+test('FAKE ALARM começa apagado e acende com a linha', () => {
+  const s = new GrokSource(T0);
+  assert.equal(s.alarm.active, false);
+  s.ingest(ev('Chefe', 'fake_alarm', 'FAKE ALARM', T0), true);
+  assert.equal(s.alarm.active, true);
+  assert.match(s.alarm.text, /FAKE ALARM/);
 });
 
 test('achado guarda o texto completo no detalhe', () => {

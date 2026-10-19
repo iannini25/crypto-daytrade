@@ -17,6 +17,8 @@ export interface AgentConfig {
   name: string;
   /** Short label drawn in the name balloon. */
   tag?: string;
+  /** Older names still written in Supabase agent_events. */
+  aliases?: string[];
   role: string;
   wing: 'desk' | 'other';
   home: RoomId;
@@ -46,6 +48,7 @@ const CRYPTO_DESK = new Set([
   '5f2db091-36b5-4aa7-ada8-0fda8824cab9',
   '158bdc1e-4baa-40d9-81c7-7577cfcbe8ae',
   'radar-x',
+  'f3a1c0de-7b21-4e9a-9c44-1d8e6a0b7c21',
 ]);
 
 export function onCryptoDesk(agent: AgentConfig): boolean {
@@ -70,7 +73,8 @@ export function findAgent(idOrName: string): AgentConfig | undefined {
   if (!q) return undefined;
   return AGENTS.find((a) => {
     const tag = (a.tag || '').toLowerCase();
-    return a.id.toLowerCase() === q || a.name.toLowerCase() === q || tag === q;
+    const aliases = (a.aliases ?? []).map((alias) => alias.toLowerCase());
+    return a.id.toLowerCase() === q || a.name.toLowerCase() === q || tag === q || aliases.includes(q);
   });
 }
 

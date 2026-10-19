@@ -1,0 +1,54 @@
+{
+  "ts_brt": "06/10/2026 10:15 BRT",
+  "acoes": [
+    {
+      "tipo": "entrada",
+      "par": "BTCUSDT",
+      "id": "P0001",
+      "entrada": 86141.94944999999,
+      "stop": 79551.53063467244,
+      "nocional": 6.0,
+      "risco_usdt": 0.47703898326467825
+    }
+  ],
+  "razoes": {
+    "BTCUSDT": "ENTRADA simulada P0001",
+    "ETHUSDT": "regime de ALTA, mas entrada BLOQUEADA: vaga de posição (1/1 abertas)",
+    "SOLUSDT": "regime de ALTA, mas entrada BLOQUEADA: vaga de posição (1/1 abertas); mínimo de ordem 5 USDT e risco ≤ 3% (posição mínima de 6,00 USDT com stop a 11,7% arriscaria 3,7% do capital (> teto de 3%))"
+  },
+  "avaliacoes": {
+    "BTCUSDT": {
+      "data_candle_utc": "2026-10-05",
+      "fechamento": 85765.7,
+      "sma": 71563.643,
+      "atr": 2196.8062717758503,
+      "regime_alta": true,
+      "dist_sma_pct": 0.19845352199300414,
+      "stop_dist": 6590.418815327551,
+      "idade_h": 13.265284186111112
+    },
+    "ETHUSDT": {
+      "data_candle_utc": "2026-10-05",
+      "fechamento": 2709.95,
+      "sma": 2178.0465,
+      "atr": 83.69510726902087,
+      "regime_alta": true,
+      "dist_sma_pct": 0.24421126913497937,
+      "stop_dist": 251.0853218070626,
+      "idade_h": 13.265284186111112
+    },
+    "SOLUSDT": {
+      "data_candle_utc": "2026-10-05",
+      "fechamento": 120.78,
+      "sma": 90.8839,
+      "atr": 4.7096748264954345,
+      "regime_alta": true,
+      "dist_sma_pct": 0.32894825156050755,
+      "stop_dist": 14.129024479486304,
+      "idade_h": 13.265284186111112
+    }
+  },
+  "patrimonio_usdt": 19.729572621574,
+  "patrimonio_brl": 97.99284129683375,
+  "erros": []
+}

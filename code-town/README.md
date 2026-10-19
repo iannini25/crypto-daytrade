@@ -1,11 +1,12 @@
 # Code Town
 
-A live isometric pixel office for the owner's Grok bots. Wall Street trading
-floor, crypto tickers, and one avatar per agent. Avatars walk to the room that
-matches their latest activity event.
+A live isometric pixel office for the owner's Grok bots. One avatar per agent.
+Avatars walk to the room that matches their latest activity event.
 
-This folder is self-contained. It does not change the trading code elsewhere
-in the repo, and it never places orders or holds exchange keys.
+This folder is the live dashboard. It reads Supabase `agent_events` and the
+public DexScreener API. It never places orders, never signs a transaction, and
+never holds a wallet or an API secret. The retired Bybit paper desk lives in
+`../legacy/` and is not part of this build.
 
 Art is procedural canvas pixel art (no paid assets). Camera pan/zoom and the
 A* walker are adapted from [Habblaud](https://github.com/marmottajr/habblaud)
@@ -17,16 +18,27 @@ A hallway joins the rooms. Each door has a name plate.
 
 | Room | Who ends up there |
 | --- | --- |
-| Sala de Gráficos | `scan`, charts, setups (Rastreador, Caçador) |
-| Redação | `noticias`, `macro`, Radar X |
-| On-chain / Baleias | whale and on-chain flow |
-| Sala de Risco | `risco`, `veto` (red light when the veto fails) |
+| Painel de Análise · pump.fun | `scan`, charts (Monitor Trending, Caçador Memecoins, PumpFun Analista) |
+| Monitor X | `noticias`, `macro`, Radar X, Conferência de Dados |
+| Holders e Carteira | holders and wallet flow |
+| Risco Memecoins | `risco`, `veto` (red light when the veto fails) |
 | Mesa de conversa | group chat / `conversa` / router |
 | Sala de código | `codigo`, automation, scripts |
-| Apresentação | `apresentacao`, metrics (Chefe, Estatística) |
-| Biblioteca | `estudo` (Estudante) |
+| Apresentação | `apresentacao`, metrics (Trader Crypto - Chefe, Estatística Memecoins) |
+| Biblioteca | `estudo` (Estudante Memecoins) |
 | Copa | idle longer than 30 minutes |
 | Outros | Leads, Whatsapp, IGORMARCHETTI |
+
+Names already stored in `agent_events` keep working. `agents.json` lists `aliases` for the previous roster (`PumpFun`, `Notícias`, `Rastreador`, `Caçador`, `Baleias`, `Risco`, `Estatística`, `Estudante`, `Macro Bolsas`). The Chefe stays **Trader Crypto - Chefe**.
+
+## Read-only market panels
+
+The Mercado button opens two panels fed by the public DexScreener API (no key):
+
+- **$DACITY** (`nxPqZ4F7ux8Vph5NFu25rEP6Kx9Gr1U6Fmj36Rjpump`): price, market cap, liquidity, 24h volume, 24h change.
+- **Top 10** Solana pump.fun mints, in the order of `token-boosts/top/v1`, filled from `token-boosts/latest/v1` when needed, with quotes from `tokens/v1`.
+
+There is no buy button. A red **FAKE ALARM** banner stays hidden. It appears only when an `agent_events` row has kind `fake_alarm` (or status `fake_alarm`, or the summary contains `FAKE ALARM`) and the status is not `off`, `clear`, or `hidden`. A later row with status `off` hides it again. Opening the page with `?fakeAlarm=1` shows the banner without writing anything. The code flag `FAKE_ALARM_FLAG` stays `false`.
 
 Every avatar has a name balloon. Helpers and unknown sources render smaller, with a badge, as `Nome (Chefe)`. A name that is not in `agents.json` spawns a temporary helper that walks off when it goes idle.
 
