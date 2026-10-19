@@ -7141,3 +7141,135 @@ html.is-replay #world {
     right: var(--gap);
   }
 }
+
+/* Carteira pump.fun no lugar dos contadores. */
+.ui-wallet {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--ui-bg-soft);
+  border: 1px solid var(--ui-line);
+  overflow-x: auto;
+}
+
+.ui-wallet__toggle {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  padding: 1px;
+  margin-right: 2px;
+}
+
+.ui-wallet__period {
+  font-size: 10px;
+  line-height: 1.1;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--ui-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ui-wallet__period[aria-checked='true'] {
+  background: rgba(124, 200, 255, 0.16);
+  color: var(--ui-text);
+}
+
+.ui-wallet__stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 88px;
+  padding: 1px 8px 2px;
+  box-shadow: inset 1px 0 0 var(--ui-line);
+}
+
+.ui-wallet__value {
+  font: 750 15px/1.05 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: #f3f6fc;
+  white-space: nowrap;
+}
+
+.ui-wallet__usd,
+.ui-wallet__sub {
+  font-size: 10px;
+  line-height: 1.15;
+  color: var(--ui-faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ui-wallet__sub:empty,
+.ui-wallet__usd:empty {
+  display: none;
+}
+
+.ui-wallet__label {
+  font-size: 10.5px;
+  color: var(--ui-muted);
+  white-space: nowrap;
+}
+
+.ui-wallet__stat--loss.is-down .ui-wallet__value,
+.ui-wallet__stat.is-down .ui-wallet__value {
+  color: var(--lv-crit);
+}
+
+.ui-wallet__stat--gain.is-up .ui-wallet__value,
+.ui-wallet__stat--open.is-up .ui-wallet__value {
+  color: var(--st-working);
+}
+
+@media (max-width: 900px) {
+  .ui-root {
+    --top-h: 124px;
+  }
+
+  .ui-topbar {
+    height: auto;
+    min-height: var(--top-h);
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .ui-wallet {
+    order: 5;
+    flex: 1 0 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .ui-root {
+    --top-h: 248px;
+  }
+
+  .ui-wallet {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .ui-wallet__toggle {
+    flex-direction: row;
+    width: 100%;
+    margin: 0 0 2px;
+  }
+
+  .ui-wallet__stat {
+    flex: 1 1 45%;
+    min-width: 0;
+    box-shadow: none;
+  }
+
+  .ui-wallet__stat--open {
+    flex: 1 0 100%;
+  }
+}
