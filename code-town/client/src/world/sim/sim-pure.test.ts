@@ -4,7 +4,10 @@ import type { SpotDef } from '../layout/types';
 import {
   canDismantle,
   chooseSeat,
+  CHEFE_OFFICE_REST,
   idleSitMs,
+  isChefeAgent,
+  rollChefeRest,
   IDLE_WEIGHTS,
   isLastInRoom,
   isLongIdle,
@@ -48,6 +51,20 @@ describe('modos de comportamento', () => {
     expect(screenModeFor('ask')).toBe('chat');
     expect(screenModeFor('error')).toBe('alert');
     expect(screenModeFor(undefined)).toBe('code');
+  });
+
+  it('o Chefe ocioso fica no sofá nove vezes em dez', () => {
+    expect(isChefeAgent({ name: 'Trader Crypto - Chefe' })).toBe(true);
+    expect(isChefeAgent({ name: 'Trader - Chefe' })).toBe(true);
+    expect(isChefeAgent({ name: 'Caçador Memecoins' })).toBe(false);
+    expect(rollChefeRest(() => 0)).toBe('office');
+    expect(rollChefeRest(() => CHEFE_OFFICE_REST - 0.0001)).toBe('office');
+    expect(rollChefeRest(() => CHEFE_OFFICE_REST)).toBe('lounge');
+    let office = 0;
+    const rng = mulberry32(7);
+    for (let i = 0; i < 1000; i++) if (rollChefeRest(rng) === 'office') office++;
+    expect(office).toBeGreaterThan(850);
+    expect(office).toBeLessThan(950);
   });
 
   it('corre quando longe (trabalho) ou quando precisa do usuário', () => {

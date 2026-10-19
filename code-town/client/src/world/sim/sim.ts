@@ -20,10 +20,12 @@ import {
   canDismantle,
   chooseSeat,
   idleSitMs,
+  isChefeAgent,
   isLastInRoom,
   isLongIdle,
   modeFor,
   pickIdleActivity,
+  rollChefeRest,
   shouldRun,
   type IdleActivity,
   type Mode,
@@ -294,6 +296,13 @@ export class Sim {
     const prev = ch.mode;
     ch.mode = mode;
     if (prev === 'idle' && mode !== 'idle') ch.nextOutingAt = 0;
+    if (isChefeAgent(ch.info)) {
+      if (mode === 'idle' && prev !== 'idle') this.rollChefe(ch, this.now);
+      if (mode !== 'idle') {
+        ch.chefeRest = null;
+        ch.chefeRestUntil = 0;
+      }
+    }
     if (ch.icon === 'zzz') ch.setIcon(null, 0, this.now);
     this.refreshShell(ch, this.now);
     // numa roda, ocioso <-> esperando shell não muda nada (segue na roda)
@@ -423,6 +432,36 @@ export class Sim {
     const home = this.spots.get(ch.homeSpot);
     // primeiro passeio só depois de alguns segundos: a carga inicial mostra todos no lugar
     ch.nextOutingAt = now + INITIAL_OUTING_DELAY_MS + idleSitMs(ch.rng, this.options().liveliness) * ch.rng();
+    if (ch.mode === 'idle' && isChefeAgent(ch.info)) {
+      if (!ch.chefeRest || now >= ch.chefeRestUntil) this.rollChefe(ch, now);
+      const sleepy = isLongIdle(ch.info.status, ch.info.statusSince, now);
+      if (ch.chefeRest === 'office') {
+        const seat = this.chefeSofa(ch);
+        if (seat && this.spots.reserve(seat.id, ch.id)) {
+          ch.tempSpots.push(seat.id);
+          this.snapTo(ch, seat);
+          if (home) roomsSeated.add(ch.roomId);
+          ch.queue.push(
+            { t: 'act', pose: sleepy ? 'sleep' : 'sit', held: 'none', ms: between(ch.rng, 20000, 40000), icon: sleepy ? 'zzz' : undefined },
+            { t: 'exit' },
+            { t: 'do', fn: () => this.releaseTemp(ch) },
+          );
+          return;
+        }
+      } else {
+        const seat = this.randomFree(INITIAL_LOUNGE_SEATS, ch);
+        if (seat && this.spots.reserve(seat.id, ch.id)) {
+          ch.tempSpots.push(seat.id);
+          this.snapTo(ch, seat);
+          ch.queue.push(
+            { t: 'act', pose: sleepy ? 'sleep' : 'sit', held: 'none', ms: between(ch.rng, 20000, 40000), icon: sleepy ? 'zzz' : undefined },
+            { t: 'exit' },
+            { t: 'do', fn: () => this.releaseTemp(ch) },
+          );
+          return;
+        }
+      }
+    }
     const relaxing =
       ch.mode === 'idle' &&
       !!home &&
@@ -1151,9 +1190,13 @@ export class Sim {
     this.assignHome(ch);
     if (!ch.homeSpot) return this.planOverflow(ch, room);
     ch.standTile = null;
-    // mesa Grok Bot: quem não está trabalhando não fica na sala de trabalho — descansa na copa/lounge
+    // mesa Grok Bot: ocioso não fica na mesa. O Chefe sorteia sofá (90%) ou lounge (10%); os outros vão ao lounge.
     if (ch.mode === 'idle' && isRestingAway(ch.info)) {
       ch.arriving = false;
+      if (isChefeAgent(ch.info)) {
+        if (!ch.chefeRest || now >= ch.chefeRestUntil) this.rollChefe(ch, now);
+        if (ch.chefeRest === 'office') return this.planChefeSofa(ch, now);
+      }
       return this.planRest(ch, now);
     }
     // sala apagada: o primeiro a chegar acende a luz
@@ -1192,6 +1235,42 @@ export class Sim {
       }
     }
     return false;
+  }
+
+  /** Novo lugar de descanso do Chefe. Vale até o prazo, depois o think sorteia de novo. */
+  private rollChefe(ch: Character, now: number): void {
+    ch.chefeRest = rollChefeRest(ch.rng);
+    ch.chefeRestUntil = now + 60_000 + ch.rng() * 60_000;
+  }
+
+  private chefeSofa(ch: Character): SpotDef | null {
+    const cands = this.spots.ofKind('sofa').filter((s) => s.areaId === 'grok:chefe' && this.spots.isFree(s.id, ch.id));
+    if (!cands.length) return null;
+    return cands[Math.floor(ch.rng() * cands.length)];
+  }
+
+  /**
+   * Chefe ocioso no próprio sofá. Sem roda no lounge enquanto este sorteio durar.
+   * Se o sofá estiver ocupado, cai no descanso do lounge.
+   */
+  private planChefeSofa(ch: Character, now: number): boolean {
+    const rng = ch.rng;
+    const sleepy = isLongIdle(ch.info.status, ch.info.statusSince, now);
+    const here = ch.atSpot ? this.spots.get(ch.atSpot) : undefined;
+    const own = (s: SpotDef | undefined): s is SpotDef => !!s && s.kind === 'sofa' && s.areaId === 'grok:chefe';
+    let seat: SpotDef | undefined = own(here) ? here : undefined;
+    const steps: Step[] = [];
+    if (!seat) {
+      const next = this.chefeSofa(ch);
+      if (!next || !this.reserveTemp(ch, next)) return this.planRest(ch, now);
+      seat = next;
+      this.pushLeave(ch, steps);
+      steps.push({ t: 'go', tx: seat.tx, ty: seat.ty }, { t: 'enter', spot: seat.id });
+    }
+    if (sleepy || rng() < 0.25) steps.push({ t: 'act', pose: 'sleep', ms: between(rng, 45_000, 90_000), icon: 'zzz' });
+    else steps.push({ t: 'act', pose: 'sit', held: 'none', ms: between(rng, 20_000, 40_000) });
+    ch.queue.push(...steps);
+    return true;
   }
 
   /**

@@ -626,7 +626,8 @@ export class Renderer {
         // roda na TV do lounge: o programa escolhido (futebol, novela, desenho) ou o videogame
         const live = this.sim.social.tvScreen();
         const trading = vis.id.startsWith('grok:');
-        const mode = trading ? (vis.id === 'grok:library' ? 'docs' : 'candles') : live ? live.mode : TV_MODES[Math.floor(now / 9000) % TV_MODES.length];
+        const screens: ScreenMode[] = vis.layout.screens?.length ? vis.layout.screens : ['candles'];
+        const mode = trading ? screens[(w.seed + Math.floor(now / 8000)) % screens.length] : live ? live.mode : TV_MODES[Math.floor(now / 9000) % TV_MODES.length];
         const seed = !trading && live ? live.seed : w.seed;
         if (r) this.safe(() => this.art.drawScreen(ctx, { x: o.x + r.x, y: o.y + rise + r.y, w: r.w, h: r.h }, mode, now, seed));
         return;
@@ -773,10 +774,12 @@ export class Renderer {
   deskScreen(f: FurnVis, area: AreaVis): ScreenMode {
     const room = area.room;
     if (room && room.light(this.sim.now) < 0.3) return 'off';
+    const screens: ScreenMode[] = area.layout.screens?.length ? area.layout.screens : ['candles'];
+    const roomMode = screens[Math.abs(f.seed) % screens.length];
     const owner = f.seatSpot ? this.sim.spots.ownerOf(f.seatSpot) : undefined;
     const ch = owner ? this.sim.chars.get(owner) : undefined;
     if (!ch || ch.leaving) {
-      if (room && room.light(this.sim.now) >= 0.3 && area.id.startsWith('grok:')) return area.id === 'grok:library' ? 'docs' : 'candles';
+      if (room && room.light(this.sim.now) >= 0.3 && area.id.startsWith('grok:')) return roomMode;
       return 'off';
     }
     const seated = ch.atSpot === f.seatSpot;
@@ -784,7 +787,8 @@ export class Renderer {
     if (!seated) return 'idle';
     if (ch.mode === 'work') {
       const mode = screenModeFor(ch.info.activity?.kind);
-      if (area.id.startsWith('grok:') && area.id !== 'grok:library' && mode !== 'alert') return 'candles';
+      if (mode === 'alert') return 'alert';
+      if (area.id.startsWith('grok:')) return roomMode;
       return mode;
     }
     // esperando um shell: terminal com a barra de progresso andando (o "filme" da pipoca)

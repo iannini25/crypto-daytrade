@@ -51,6 +51,10 @@ export class Character {
   missingSince: number | null = null;
   /** Próximo passeio do ocioso (ms epoch). */
   nextOutingAt = 0;
+  /** Onde o Chefe descansa enquanto ocioso. null = ainda não sorteou. */
+  chefeRest: 'office' | 'lounge' | null = null;
+  /** Até quando vale o sorteio atual (ms epoch). */
+  chefeRestUntil = 0;
   /** Roda de que participa (ou a caminho dela). */
   gathering: Gathering | null = null;
   /** Quem espera um shell: próxima tentativa de entrar numa roda (ms epoch; 0 = agendar). */

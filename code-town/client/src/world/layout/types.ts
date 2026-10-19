@@ -1,6 +1,6 @@
 // Tipos do layout do escritório. Módulos de layout são PUROS (sem DOM): geram descrições
 // que o render transforma em pixels e a simulação usa para caminhos e pontos de interesse.
-import type { Dir, FloorKind, FurnitureKind, WallStyle } from '../../art/api';
+import type { Dir, FloorKind, FurnitureKind, ScreenMode, WallStyle } from '../../art/api';
 
 export type AreaKind = 'reception' | 'restroom' | 'cafe' | 'lounge' | 'room' | 'corridor';
 
@@ -152,6 +152,8 @@ export interface AreaLayout {
   shade?: { x: number; y: number; w: number; h: number };
   /** Retângulo (px) da placa com o nome. */
   signId?: string;
+  /** Telas da sala (TVs e monitores). Cada sala da mesa tem o seu conjunto. */
+  screens?: ScreenMode[];
 }
 
 /** Elemento decorativo externo (árvore, arbusto, poste...) desenhado pelo próprio mundo. */
