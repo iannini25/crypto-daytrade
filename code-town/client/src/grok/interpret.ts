@@ -22,9 +22,12 @@ export const DESK_ROOM: Record<string, string> = {
   'Estudante Memecoins': 'library',
 };
 
+const DESK_IDS = new Set(Object.values(DESK_ROOM));
+
 export function deskOf(agent: AgentConfig): string {
   const key = agent.tag || agent.name;
   if (DESK_ROOM[key]) return DESK_ROOM[key];
+  if (DESK_IDS.has(agent.home)) return agent.home;
   if (agent.parent && DESK_ROOM[agent.parent]) return DESK_ROOM[agent.parent];
   return 'talk';
 }
