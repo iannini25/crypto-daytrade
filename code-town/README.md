@@ -108,9 +108,17 @@ export SQLITE_PATH=/workspace/cripto-estudo/mesa/mesa.db # default
 python3 code-town/pusher/push.py
 ```
 
-The CLI that writes the log is `mesa_db log-atividade --agente <name> --tipo <kind> --resumo <text>`.
-This repo does not ship that database. On startup the script lists tables and
-columns and picks an activity table (`atividade`, `activity`, …) unless you set:
+The CLI that writes the log is in this repo and reads `agents.json` (accent-folded: `Conferencia` matches `Conferência`):
+
+```bash
+python3 code-town/mesa_db.py agentes
+python3 code-town/mesa_db.py log-atividade --agente "Monitor X" --tipo achado --resumo "..."
+python3 code-town/mesa_db.py ociosos
+```
+
+`ociosos` always lists the ten desk agents, including anyone who has never logged. The database file is local (`SQLITE_PATH`, default `code-town/mesa/mesa.db`). This repo does not ship that database. The command runs on the box: a Vercel deploy does not update it, so the checkout at `/workspace` needs `git pull`. If `mesa_db` on PATH is still the older program under `/workspace/cripto-estudo`, that tree is separate — call `python3 code-town/mesa_db.py`.
+
+On startup the pusher lists tables and columns and picks an activity table (`atividade`, `activity`, …) unless you set:
 
 | Env | Meaning |
 | --- | --- |

@@ -41,10 +41,11 @@ def env(name: str) -> str:
     return value
 
 
-def load_agents() -> list[dict]:
-    if not AGENTS_PATH.exists():
+def load_agents(path: Path | None = None) -> list[dict]:
+    src = path or AGENTS_PATH
+    if not src.exists():
         return []
-    return json.loads(AGENTS_PATH.read_text(encoding="utf-8"))
+    return json.loads(src.read_text(encoding="utf-8"))
 
 
 def fold_key(value: str) -> str:
@@ -74,15 +75,27 @@ def agent_labels(agent: dict) -> list[str]:
     return [fold_key(str(label)) for label in labels if str(label).strip()]
 
 
-def match_agent(agents: list[dict], name: str) -> tuple[str, str]:
+def find_agent(agents: list[dict], name: str) -> dict | None:
+    """Exact match on name, tag, id, or alias. Accents and hyphens are ignored."""
     q = fold_key(name)
     qslug = slug_key(name)
+    if not q:
+        return None
     for agent in agents:
         labels = agent_labels(agent)
-        if q and q in labels:
-            return agent["id"], agent["name"]
+        if q in labels:
+            return agent
         if qslug and len(qslug) >= 3 and qslug in {slug_key(label) for label in labels}:
-            return agent["id"], agent["name"]
+            return agent
+    return None
+
+
+def match_agent(agents: list[dict], name: str) -> tuple[str, str]:
+    found = find_agent(agents, name)
+    if found:
+        return found["id"], found["name"]
+    q = fold_key(name)
+    qslug = slug_key(name)
     for agent in agents:
         label = fold_key(str(agent.get("name") or ""))
         if q and label and (q in label or label in q):
