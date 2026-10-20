@@ -9,6 +9,7 @@ export type RoomId =
   | 'code'
   | 'present'
   | 'library'
+  | 'conferencia'
   | 'coffee'
   | 'other';
 
@@ -68,13 +69,28 @@ export function nameTag(agent: AgentConfig): string {
   return base;
 }
 
+/** Lowercase, stripped of accents, so "Conferencia" matches "Conferência". */
+export function foldKey(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+/** Hyphenated id the pusher stores when a name misses agents.json ("Conferência de Dados" → conferencia-de-dados). */
+export function slugKey(value: string): string {
+  return foldKey(value).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
 export function findAgent(idOrName: string): AgentConfig | undefined {
   const q = idOrName.trim().toLowerCase();
+  const folded = foldKey(idOrName);
+  const slug = slugKey(idOrName);
   if (!q) return undefined;
   return AGENTS.find((a) => {
-    const tag = (a.tag || '').toLowerCase();
-    const aliases = (a.aliases ?? []).map((alias) => alias.toLowerCase());
-    return a.id.toLowerCase() === q || a.name.toLowerCase() === q || tag === q || aliases.includes(q);
+    const keys = [a.id, a.name, a.tag ?? '', ...(a.aliases ?? [])];
+    return keys.some((key) => {
+      if (!key) return false;
+      if (key.toLowerCase() === q || foldKey(key) === folded) return true;
+      return slug.length >= 3 && slugKey(key) === slug;
+    });
   });
 }
 

@@ -16,6 +16,7 @@ import json
 import os
 import sqlite3
 import sys
+import unicodedata
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -46,25 +47,47 @@ def load_agents() -> list[dict]:
     return json.loads(AGENTS_PATH.read_text(encoding="utf-8"))
 
 
+def fold_key(value: str) -> str:
+    text = unicodedata.normalize("NFD", (value or "").strip().lower())
+    return "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+
+
+def slug_key(value: str) -> str:
+    folded = fold_key(value)
+    out: list[str] = []
+    hyphen = False
+    for ch in folded:
+        if ch.isalnum():
+            out.append(ch)
+            hyphen = False
+        elif out and not hyphen:
+            out.append("-")
+            hyphen = True
+    return "".join(out).strip("-")
+
+
 def agent_labels(agent: dict) -> list[str]:
     labels = [agent.get("name") or "", agent.get("tag") or "", agent.get("id") or ""]
     aliases = agent.get("aliases") or []
     if isinstance(aliases, list):
         labels.extend(str(alias) for alias in aliases)
-    return [str(label).strip().lower() for label in labels if str(label).strip()]
+    return [fold_key(str(label)) for label in labels if str(label).strip()]
 
 
 def match_agent(agents: list[dict], name: str) -> tuple[str, str]:
-    q = (name or "").strip().lower()
+    q = fold_key(name)
+    qslug = slug_key(name)
     for agent in agents:
-        if q and q in agent_labels(agent):
+        labels = agent_labels(agent)
+        if q and q in labels:
+            return agent["id"], agent["name"]
+        if qslug and len(qslug) >= 3 and qslug in {slug_key(label) for label in labels}:
             return agent["id"], agent["name"]
     for agent in agents:
-        label = str(agent.get("name") or "").lower()
+        label = fold_key(str(agent.get("name") or ""))
         if q and label and (q in label or label in q):
             return agent["id"], agent["name"]
-    slug = "-".join(q.split()) or "unknown"
-    return slug, name or slug
+    return qslug or "unknown", name or qslug or "unknown"
 
 
 def list_tables(con: sqlite3.Connection) -> list[str]:
