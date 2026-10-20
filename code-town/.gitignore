@@ -4,4 +4,5 @@ dist
 .env.local
 pusher/.cursor.json
 pusher/cursor.json
+mesa/*.db
 *.log
